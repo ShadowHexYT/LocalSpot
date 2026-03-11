@@ -814,22 +814,21 @@ class App:
         queue_frame = ttk.LabelFrame(right_stack, text="In Queue", padding=10)
         queue_frame.grid(row=1, column=0, sticky="ew", pady=(10, 0))
         queue_frame.columnconfigure(0, weight=1)
-        queue_tree_frame = ttk.Frame(queue_frame, style="Card.TFrame")
-        queue_tree_frame.grid(row=0, column=0, sticky="ew")
-        queue_tree_frame.columnconfigure(0, weight=1)
-        self.queue_tree = ttk.Treeview(queue_tree_frame, columns=("url",), show="headings", height=4, selectmode="browse")
-        self.queue_tree.heading("url", text="Queued Download")
-        self.queue_tree.column("url", anchor="w", stretch=True, width=520)
-        queue_ybar = ttk.Scrollbar(queue_tree_frame, orient="vertical", command=self.queue_tree.yview)
-        self.queue_tree.configure(yscrollcommand=queue_ybar.set)
-        self.queue_tree.grid(row=0, column=0, sticky="ew")
+        queue_list_shell = ttk.Frame(queue_frame, style="Card.TFrame")
+        queue_list_shell.grid(row=0, column=0, sticky="ew")
+        queue_list_shell.columnconfigure(0, weight=1)
+        self.queue_canvas = tk.Canvas(queue_list_shell, highlightthickness=0, borderwidth=0, height=132)
+        queue_ybar = ttk.Scrollbar(queue_list_shell, orient="vertical", command=self.queue_canvas.yview)
+        self.queue_canvas.configure(yscrollcommand=queue_ybar.set)
+        self.queue_canvas.grid(row=0, column=0, sticky="ew")
         queue_ybar.grid(row=0, column=1, sticky="ns")
+        self.queue_feed = ttk.Frame(self.queue_canvas, style="Card.TFrame")
+        self.queue_feed.columnconfigure(0, weight=1)
+        self.queue_canvas_window = self.queue_canvas.create_window((0, 0), window=self.queue_feed, anchor="nw")
+        self.queue_feed.bind("<Configure>", self._sync_queue_canvas)
+        self.queue_canvas.bind("<Configure>", self._resize_queue_canvas)
         self.queue_empty_label = ttk.Label(queue_frame, text="Nothing queued.", style="CardSubtle.TLabel")
         self.queue_empty_label.grid(row=1, column=0, sticky="w", pady=(8, 0))
-        queue_actions = ttk.Frame(queue_frame, style="Card.TFrame")
-        queue_actions.grid(row=2, column=0, sticky="ew", pady=(8, 0))
-        queue_actions.columnconfigure(0, weight=1)
-        ttk.Button(queue_actions, text="Delete Selected", command=self._delete_selected_queue_item, style="Danger.TButton").pack(side="left")
 
         ttk.Label(home, text="Point Spotify Desktop at the Spotify-ready folder through Settings -> Local Files -> Add a source.", wraplength=960, style="Subtle.TLabel").grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self.main_notebook.select(home)
@@ -1039,20 +1038,20 @@ class App:
         style.configure("Panel.TFrame", background=colors["panel"])
         style.configure("Toolbar.TFrame", background=colors["panel"])
         style.configure("TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10))
-        style.configure("Hero.TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10))
-        style.configure("Section.TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10))
+        style.configure("Hero.TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10, "bold"))
+        style.configure("Section.TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10, "bold"))
         style.configure("Subtle.TLabel", background=colors["panel"], foreground=colors["muted"], font=("Segoe UI", 10))
         style.configure("Panel.TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10))
         style.configure("PanelSubtle.TLabel", background=colors["panel"], foreground=colors["muted"], font=("Segoe UI", 10))
-        style.configure("CardTitle.TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10))
+        style.configure("CardTitle.TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10, "bold"))
         style.configure("CardSubtle.TLabel", background=colors["panel"], foreground=colors["muted"], font=("Segoe UI", 10))
         style.configure("CardBadge.TLabel", background=colors["accent_soft"], foreground=colors["accent"], padding=(10, 5), font=("Segoe UI", 9, "bold"))
         style.configure("CardChip.TLabel", background=colors["panel_alt"], foreground=colors["fg"], padding=(10, 6))
         style.configure("Badge.TLabel", background=colors["accent_soft"], foreground=colors["accent"], padding=(10, 5), font=("Segoe UI", 9, "bold"))
         style.configure("Chip.TLabel", background=colors["panel_alt"], foreground=colors["fg"], padding=(10, 6))
         style.configure("TLabelframe", background=colors["panel"], foreground=colors["fg"], bordercolor=colors["border"], relief="flat", borderwidth=1)
-        style.configure("TLabelframe.Label", background=colors["panel"], foreground=colors["fg"])
-        style.configure("TButton", background=colors["panel"], foreground=colors["fg"], padding=(14, 9), borderwidth=1, relief="flat", font=("Segoe UI", 10))
+        style.configure("TLabelframe.Label", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10, "bold"))
+        style.configure("TButton", background=colors["panel"], foreground=colors["fg"], padding=(14, 9), borderwidth=1, relief="flat", font=("Segoe UI", 10, "bold"))
         style.map("TButton", background=[("active", colors["panel_alt"])], foreground=[("active", colors["fg"])])
         style.configure("Primary.TButton", background=colors["accent"], foreground=colors["panel"], padding=(16, 9), borderwidth=1, relief="flat")
         style.map("Primary.TButton", background=[("active", colors["fg"]), ("disabled", colors["panel_alt"])], foreground=[("active", colors["accent"]), ("disabled", colors["muted"])])
@@ -1134,6 +1133,8 @@ class App:
             self.log_text.configure(bg=colors["field"], fg=colors["fg"], insertbackground=colors["fg"], selectbackground=colors["accent_soft"], relief="flat", font=("Segoe UI", 10), padx=10, pady=10, spacing1=4, spacing3=6)
         if hasattr(self, "activity_canvas") and self.activity_canvas:
             self.activity_canvas.configure(background=colors["panel_soft"])
+        if hasattr(self, "queue_canvas") and self.queue_canvas:
+            self.queue_canvas.configure(background=colors["panel"])
         if hasattr(self, "settings_canvas") and self.settings_canvas:
             self.settings_canvas.configure(background=colors["panel_soft"])
         if hasattr(self, "trim_canvas") and self.trim_canvas:
@@ -1854,6 +1855,14 @@ class App:
         if hasattr(self, "settings_canvas_window"):
             self.settings_canvas.itemconfigure(self.settings_canvas_window, width=event.width)
 
+    def _sync_queue_canvas(self, _event=None):
+        if hasattr(self, "queue_canvas") and hasattr(self, "queue_canvas_window"):
+            self.queue_canvas.configure(scrollregion=self.queue_canvas.bbox("all"))
+
+    def _resize_queue_canvas(self, event):
+        if hasattr(self, "queue_canvas_window"):
+            self.queue_canvas.itemconfigure(self.queue_canvas_window, width=event.width)
+
     def _next_activity_id(self) -> str:
         self.activity_sequence += 1
         return f"activity-{self.activity_sequence}"
@@ -2117,16 +2126,28 @@ class App:
         )
 
     def _refresh_queue_view(self):
-        if not hasattr(self, "queue_tree"):
+        if not hasattr(self, "queue_feed"):
             return
-        self.queue_tree.delete(*self.queue_tree.get_children())
+        for child in self.queue_feed.winfo_children():
+            child.destroy()
         for index, item in enumerate(self.download_queue):
+            row = ttk.Frame(self.queue_feed, style="Card.TFrame", padding=8)
+            row.grid(row=index, column=0, sticky="ew", pady=(0, 6))
+            row.columnconfigure(0, weight=1)
             label = item.get("url", "")
-            if len(label) > 80:
-                label = label[:77] + "..."
-            self.queue_tree.insert("", "end", iid=str(index), values=(label,))
+            if len(label) > 88:
+                label = label[:85] + "..."
+            ttk.Label(row, text=label, style="CardSubtle.TLabel").grid(row=0, column=0, sticky="w")
+            ttk.Button(
+                row,
+                text="X",
+                command=lambda item_index=index: self._delete_queue_item(item_index),
+                style="Danger.TButton",
+                width=3,
+            ).grid(row=0, column=1, sticky="e", padx=(10, 0))
         if hasattr(self, "queue_empty_label"):
             self.queue_empty_label.configure(text="Nothing queued." if not self.download_queue else f"{len(self.download_queue)} item(s) queued.")
+        self._sync_queue_canvas()
 
     def _queue_download(self, url: str, import_folder: str, spotify_folder: str):
         request = {
@@ -2138,14 +2159,7 @@ class App:
         self._refresh_queue_view()
         self._log(f"Queued download: {url}")
 
-    def _delete_selected_queue_item(self):
-        if not hasattr(self, "queue_tree"):
-            return
-        selected = self.queue_tree.selection()
-        if not selected:
-            messagebox.showinfo(APP_TITLE, "Select a queued item first.")
-            return
-        index = int(selected[0])
+    def _delete_queue_item(self, index: int):
         if index < 0 or index >= len(self.download_queue):
             return
         removed = self.download_queue.pop(index)
