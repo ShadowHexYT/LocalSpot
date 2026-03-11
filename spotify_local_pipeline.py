@@ -1119,6 +1119,44 @@ class App:
         style.configure("Treeview.Heading", background=colors["panel_alt"], foreground=colors["fg"], padding=(10, 9), borderwidth=0, relief="flat", font=("Segoe UI", 10, "bold"))
         style.map("Treeview", background=[("selected", colors["accent_soft"])], foreground=[("selected", colors["fg"])])
         style.map("Treeview.Heading", background=[("active", colors["panel"])])
+        scrollbar_trough = "#161616" if mode == "dark" else "#dde8fb"
+        scrollbar_thumb = "#5a5a5a" if mode == "dark" else "#9dbaf2"
+        scrollbar_active = "#747474" if mode == "dark" else "#7ea7ef"
+        scrollbar_arrow = "#8f8f8f" if mode == "dark" else "#3f68b5"
+        style.configure(
+            "Vertical.TScrollbar",
+            background=scrollbar_thumb,
+            troughcolor=scrollbar_trough,
+            darkcolor=scrollbar_thumb,
+            lightcolor=scrollbar_thumb,
+            bordercolor=scrollbar_trough,
+            arrowcolor=scrollbar_arrow,
+            relief="flat",
+            width=14,
+            arrowsize=10,
+        )
+        style.map(
+            "Vertical.TScrollbar",
+            background=[("active", scrollbar_active), ("pressed", scrollbar_active)],
+            arrowcolor=[("active", "#c8c8c8"), ("pressed", "#e0e0e0")],
+        )
+        style.configure(
+            "Horizontal.TScrollbar",
+            background=scrollbar_thumb,
+            troughcolor=scrollbar_trough,
+            darkcolor=scrollbar_thumb,
+            lightcolor=scrollbar_thumb,
+            bordercolor=scrollbar_trough,
+            arrowcolor=scrollbar_arrow,
+            relief="flat",
+            width=14,
+            arrowsize=10,
+        )
+        style.map(
+            "Horizontal.TScrollbar",
+            background=[("active", scrollbar_active), ("pressed", scrollbar_active)],
+            arrowcolor=[("active", "#c8c8c8"), ("pressed", "#e0e0e0")],
+        )
         progress_light = "#8df0a8" if mode == "dark" else "#9af5ae"
         progress_dark = "#2f9e57" if mode == "dark" else "#2e8b57"
         style.configure(
@@ -1155,6 +1193,11 @@ class App:
         if hasattr(self, "dependency_link_labels"):
             for label in self.dependency_link_labels:
                 label.configure(bg=colors["panel"], fg=colors["accent"])
+        # Match the ttk Combobox dropdown popup colors to the active theme.
+        self.root.option_add("*TCombobox*Listbox*Background", colors["field"])
+        self.root.option_add("*TCombobox*Listbox*Foreground", colors["fg"])
+        self.root.option_add("*TCombobox*Listbox*selectBackground", colors["accent_soft"])
+        self.root.option_add("*TCombobox*Listbox*selectForeground", colors["fg"])
         self._update_theme_toggle_buttons()
 
     def _update_theme_toggle_buttons(self):
