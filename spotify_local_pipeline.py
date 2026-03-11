@@ -589,6 +589,11 @@ class App:
         self.copy_to_spotify_folder_var = tk.BooleanVar(value=saved.get("copy_to_spotify_folder", True))
         self.write_tags_var = tk.BooleanVar(value=saved.get("write_embedded_tags", True))
         self.download_history = list(saved.get("download_history", []))
+        self.session_activity = []
+        self.activity_images = {}
+        self.activity_card_widgets = {}
+        self.current_download_activity_id = None
+        self.activity_sequence = 0
         self.workspace_rows = []
         self.workspace_mode = "metadata"
         self.trim_row = None
@@ -609,6 +614,7 @@ class App:
         self.status_animation_after = None
         self.current_theme_colors = {}
         self.download_state_var = tk.StringVar(value="Ready to download.")
+        self.download_progress_value = tk.DoubleVar(value=0.0)
         self.trim_preview_state_var = tk.StringVar(value="Preview stopped.")
         self.workspace_mode_var = tk.StringVar(value="Metadata")
         self.trim_title_var = tk.StringVar()
@@ -693,55 +699,97 @@ class App:
         self.main_notebook.add(self.workspace, text="Workspace")
         self.main_notebook.add(settings, text="Settings")
 
-        home.columnconfigure(0, weight=1)
-        home.rowconfigure(2, weight=1)
+        home.columnconfigure(0, weight=0)
+        home.columnconfigure(1, weight=1)
+        home.rowconfigure(1, weight=1)
         self.workspace.columnconfigure(0, weight=1)
         self.workspace.rowconfigure(2, weight=1)
         settings.columnconfigure(0, weight=1)
 
-        form_card = ttk.LabelFrame(home, text="Download Setup", padding=14)
+        home_intro = ttk.Frame(home, style="Card.TFrame", padding=14)
+        home_intro.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+        home_intro.columnconfigure(0, weight=1)
+        ttk.Label(home_intro, text="New Download", font=("Segoe UI", 16, "bold"), style="CardTitle.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(
+            home_intro,
+            text="Paste a video or playlist URL, choose quality and output folders, then monitor every download in the session queue on the right.",
+            style="CardSubtle.TLabel",
+            wraplength=1180,
+            justify="left",
+        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+
+        control_stack = ttk.Frame(home, style="Shell.TFrame")
+        control_stack.grid(row=1, column=0, sticky="nsew", padx=(0, 12))
+        control_stack.columnconfigure(0, weight=1)
+
+        form_card = ttk.LabelFrame(control_stack, text="Download Setup", padding=14)
         form_card.grid(row=0, column=0, sticky="ew")
         form_card.columnconfigure(0, weight=1)
         form = ttk.Frame(form_card, style="Card.TFrame")
         form.grid(row=0, column=0, sticky="ew")
         form.columnconfigure(1, weight=1)
 
-        ttk.Label(form, text="YouTube URL").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
+        ttk.Label(form, text="YouTube URL", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
         ttk.Entry(form, textvariable=self.url_var).grid(row=0, column=1, sticky="ew", pady=(0, 8))
-        ttk.Label(form, text="Download folder").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
-        import_frame = ttk.Frame(form)
+        ttk.Label(form, text="Download folder", style="Panel.TLabel").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
+        import_frame = ttk.Frame(form, style="Panel.TFrame")
         import_frame.grid(row=1, column=1, sticky="ew", pady=(0, 8))
         import_frame.columnconfigure(0, weight=1)
         ttk.Entry(import_frame, textvariable=self.import_folder_var).grid(row=0, column=0, sticky="ew")
         ttk.Button(import_frame, text="Browse", command=self._choose_import_folder).grid(row=0, column=1, padx=(8, 0))
-        ttk.Label(form, text="Spotify-ready folder").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
-        spotify_frame = ttk.Frame(form)
+        ttk.Label(form, text="Spotify-ready folder", style="Panel.TLabel").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
+        spotify_frame = ttk.Frame(form, style="Panel.TFrame")
         spotify_frame.grid(row=2, column=1, sticky="ew", pady=(0, 8))
         spotify_frame.columnconfigure(0, weight=1)
         ttk.Entry(spotify_frame, textvariable=self.spotify_folder_var).grid(row=0, column=0, sticky="ew")
         ttk.Button(spotify_frame, text="Browse", command=self._choose_spotify_folder).grid(row=0, column=1, padx=(8, 0))
-        ttk.Label(form, text="MP3 quality").grid(row=3, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
+        ttk.Label(form, text="MP3 quality", style="Panel.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
         ttk.Combobox(form, textvariable=self.mp3_quality_var, state="readonly", values=["320", "256", "192", "128"]).grid(row=3, column=1, sticky="w", pady=(0, 8))
 
-        actions = ttk.LabelFrame(home, text="Download Controls", padding=14)
-        actions.grid(row=1, column=0, sticky="ew", pady=(6, 8))
+        quick_options = ttk.LabelFrame(control_stack, text="Quick Options", padding=14)
+        quick_options.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        ttk.Checkbutton(quick_options, text="Allow playlists", variable=self.playlist_var, style="Panel.TCheckbutton").grid(row=0, column=0, sticky="w")
+        ttk.Checkbutton(quick_options, text="Review metadata before import", variable=self.review_before_import_var, style="Panel.TCheckbutton").grid(row=1, column=0, sticky="w", pady=(6, 0))
+        ttk.Checkbutton(quick_options, text="Copy to Spotify-ready folder", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Checkbutton(quick_options, text="Embed MP3 tags and artwork", variable=self.write_tags_var, style="Panel.TCheckbutton").grid(row=3, column=0, sticky="w", pady=(6, 0))
+
+        actions = ttk.LabelFrame(control_stack, text="Download Controls", padding=14)
+        actions.grid(row=2, column=0, sticky="ew", pady=(10, 0))
         action_row = ttk.Frame(actions, style="Toolbar.TFrame")
         action_row.pack(fill="x")
-        self.download_button = ttk.Button(action_row, text="Start Download", command=self._start_download, style="Primary.TButton")
+        self.download_button = ttk.Button(action_row, text="Download", command=self._start_download, style="Primary.TButton")
         self.download_button.pack(side="left")
-        self.stop_button = ttk.Button(action_row, text="Stop", command=self._stop_download, state="disabled", style="Danger.TButton")
+        self.stop_button = ttk.Button(action_row, text="Force Stop", command=self._stop_download, state="disabled", style="Danger.TButton")
         self.stop_button.pack(side="left", padx=(8, 0))
-        self.download_progress = ttk.Progressbar(action_row, mode="indeterminate", length=140, style="Accent.Horizontal.TProgressbar")
+        self.download_progress = ttk.Progressbar(action_row, mode="determinate", maximum=100, variable=self.download_progress_value, length=180, style="Accent.Horizontal.TProgressbar")
         self.download_progress.pack(side="left", padx=(12, 0))
         ttk.Label(action_row, textvariable=self.download_state_var, style="Chip.TLabel").pack(side="left", padx=(12, 0))
 
-        log_frame = ttk.LabelFrame(home, text="Activity", padding=10)
-        log_frame.grid(row=2, column=0, sticky="nsew")
-        self.log_text = tk.Text(log_frame, wrap="word", height=16)
-        self.log_text.pack(fill="both", expand=True)
-        self.log_text.configure(state="disabled")
+        activity_frame = ttk.LabelFrame(home, text="Session Activity", padding=10)
+        activity_frame.grid(row=1, column=1, sticky="nsew")
+        activity_frame.columnconfigure(0, weight=1)
+        activity_frame.rowconfigure(0, weight=1)
+        self.activity_canvas = tk.Canvas(activity_frame, highlightthickness=0, borderwidth=0)
+        activity_scrollbar = ttk.Scrollbar(activity_frame, orient="vertical", command=self.activity_canvas.yview)
+        self.activity_canvas.configure(yscrollcommand=activity_scrollbar.set)
+        self.activity_canvas.grid(row=0, column=0, sticky="nsew")
+        activity_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.activity_feed = ttk.Frame(activity_frame, style="Shell.TFrame")
+        self.activity_feed.columnconfigure(0, weight=1)
+        self.activity_canvas_window = self.activity_canvas.create_window((0, 0), window=self.activity_feed, anchor="nw")
+        self.activity_feed.bind("<Configure>", self._sync_activity_canvas)
+        self.activity_canvas.bind("<Configure>", self._resize_activity_canvas)
+        self.activity_empty_label = ttk.Label(
+            self.activity_feed,
+            text="No activity yet. Start a download and the session feed will appear here.",
+            style="CardSubtle.TLabel",
+            wraplength=900,
+            justify="left",
+        )
+        self.activity_empty_label.grid(row=0, column=0, sticky="w", padx=12, pady=12)
 
-        ttk.Label(home, text="Point Spotify Desktop at the Spotify-ready folder through Settings -> Local Files -> Add a source.", wraplength=960, style="Subtle.TLabel").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(home, text="Point Spotify Desktop at the Spotify-ready folder through Settings -> Local Files -> Add a source.", wraplength=960, style="Subtle.TLabel").grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        self.main_notebook.select(home)
 
         workspace_header = ttk.Frame(self.workspace)
         workspace_header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
@@ -883,6 +931,16 @@ class App:
                 padx=(0, 8) if column < 2 else 0,
                 pady=(0, 8) if row == 0 else 0,
             )
+        log_frame = ttk.LabelFrame(settings, text="Background Log", padding=10)
+        log_frame.grid(row=4, column=0, sticky="nsew", pady=(12, 0))
+        log_frame.columnconfigure(0, weight=1)
+        log_frame.rowconfigure(0, weight=1)
+        settings.rowconfigure(4, weight=1)
+        self.log_text = tk.Text(log_frame, wrap="word", height=12)
+        self.log_text.grid(row=0, column=0, sticky="nsew")
+        log_scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
+        log_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.log_text.configure(yscrollcommand=log_scrollbar.set, state="disabled")
         self._apply_theme(self.theme_mode_var.get())
         self._set_download_state("idle")
 
@@ -1014,6 +1072,8 @@ class App:
         style.configure("Accent.Horizontal.TProgressbar", background=colors["accent"], troughcolor=colors["panel_alt"], bordercolor=colors["panel_alt"], lightcolor=colors["accent"], darkcolor=colors["accent"])
         if hasattr(self, "log_text") and self.log_text:
             self.log_text.configure(bg=colors["field"], fg=colors["fg"], insertbackground=colors["fg"], selectbackground=colors["accent_soft"], relief="flat", font=("Segoe UI", 10), padx=10, pady=10, spacing1=4, spacing3=6)
+        if hasattr(self, "activity_canvas") and self.activity_canvas:
+            self.activity_canvas.configure(background=colors["panel_soft"])
         if hasattr(self, "trim_canvas") and self.trim_canvas:
             self.trim_canvas.configure(
                 background=colors["field"],
@@ -1281,11 +1341,20 @@ class App:
             self.stop_button.configure(state=stop_state if state in {"running", "stopping"} else "disabled")
         if hasattr(self, "download_button"):
             self.download_button.configure(state="disabled" if state in {"running", "stopping"} else "normal")
-        if hasattr(self, "download_progress"):
-            if state in {"running", "stopping"}:
-                self.download_progress.start(12)
-            else:
-                self.download_progress.stop()
+        if hasattr(self, "download_progress_value"):
+            if state == "idle":
+                self.download_progress_value.set(0.0)
+            elif state == "done":
+                self.download_progress_value.set(100.0)
+            elif state == "error":
+                self.download_progress_value.set(0.0)
+
+    def _set_download_progress_percent(self, value: float | None):
+        if not hasattr(self, "download_progress_value"):
+            return
+        if value is None:
+            return
+        self.download_progress_value.set(max(0.0, min(100.0, float(value))))
 
     def _set_workspace_status(self, mode_label: str, message: str):
         self.workspace_mode_var.set(mode_label)
@@ -1652,6 +1721,31 @@ class App:
             text = f"Error: {text[len('ERROR: '):]}"
         return text
 
+    def _extract_activity_info_from_line(self, line: str) -> dict:
+        details = {"progress": None, "title": "", "artist": "", "details": ""}
+        match = re.search(r"(\d+(?:\.\d+)?)%", line)
+        if match:
+            try:
+                details["progress"] = float(match.group(1))
+            except Exception:
+                details["progress"] = None
+        if "Destination: " in line:
+            destination = line.split("Destination: ", 1)[1].strip()
+            path = Path(destination)
+            stem = path.stem
+            artist = path.parent.parent.name if len(path.parents) >= 2 else ""
+            if " - " in stem:
+                _, possible_title = stem.split(" - ", 1)
+                stem = possible_title
+            details["title"] = stem
+            details["artist"] = artist
+            details["details"] = destination
+        elif "Saving: " in self._format_log_message(line):
+            details["details"] = self._format_log_message(line)
+        else:
+            details["details"] = self._format_log_message(line)
+        return details
+
     def _log(self, message: str):
         formatted = self._format_log_message(message)
         if formatted:
@@ -1668,6 +1762,216 @@ class App:
         except queue.Empty:
             pass
         self.root.after(150, self._poll_log_queue)
+
+    def _sync_activity_canvas(self, _event=None):
+        if hasattr(self, "activity_canvas") and hasattr(self, "activity_canvas_window"):
+            self.activity_canvas.configure(scrollregion=self.activity_canvas.bbox("all"))
+
+    def _resize_activity_canvas(self, event):
+        if hasattr(self, "activity_canvas_window"):
+            self.activity_canvas.itemconfigure(self.activity_canvas_window, width=event.width)
+
+    def _next_activity_id(self) -> str:
+        self.activity_sequence += 1
+        return f"activity-{self.activity_sequence}"
+
+    def _load_activity_thumbnail(self, entry: dict):
+        artwork_path = entry.get("artwork_path", "")
+        if artwork_path and Path(artwork_path).exists():
+            try:
+                image = tk.PhotoImage(file=artwork_path)
+                width = max(image.width(), 1)
+                height = max(image.height(), 1)
+                subsample = max(1, max(width // 112, height // 112))
+                if subsample > 1:
+                    image = image.subsample(subsample, subsample)
+                self.activity_images[entry["id"]] = image
+                return image
+            except Exception:
+                pass
+        source_path = entry.get("source_path", "") or entry.get("spotify_path", "")
+        if source_path and Path(source_path).exists() and MUTAGEN_AVAILABLE:
+            try:
+                tags = ID3(str(source_path))
+                frames = tags.getall("APIC")
+                if frames:
+                    image_data = base64.b64encode(frames[0].data).decode("ascii")
+                    image = tk.PhotoImage(data=image_data)
+                    width = max(image.width(), 1)
+                    height = max(image.height(), 1)
+                    subsample = max(1, max(width // 112, height // 112))
+                    if subsample > 1:
+                        image = image.subsample(subsample, subsample)
+                    self.activity_images[entry["id"]] = image
+                    return image
+            except Exception:
+                pass
+        self.activity_images.pop(entry["id"], None)
+        return None
+
+    def _add_activity_entry(self, **entry):
+        activity = {
+            "id": self._next_activity_id(),
+            "title": entry.get("title", "Activity"),
+            "artist": entry.get("artist", ""),
+            "status": entry.get("status", "Pending"),
+            "details": entry.get("details", ""),
+            "subtitle": entry.get("subtitle", ""),
+            "progress": entry.get("progress"),
+            "artwork_path": entry.get("artwork_path", ""),
+            "source_path": entry.get("source_path", ""),
+            "spotify_path": entry.get("spotify_path", ""),
+            "kind": entry.get("kind", "event"),
+            "can_delete": bool(entry.get("can_delete")),
+        }
+        self.session_activity.insert(0, activity)
+        self._render_activity_feed()
+        return activity["id"]
+
+    def _update_activity_entry(self, entry_id: str | None, **changes):
+        if not entry_id:
+            return
+        for entry in self.session_activity:
+            if entry["id"] == entry_id:
+                entry.update(changes)
+                self._render_activity_feed()
+                return
+
+    def _record_session_event(self, title: str, details: str = "", status: str = "Done"):
+        current = self._get_activity_entry(self.current_download_activity_id)
+        if current:
+            self._update_activity_entry(
+                self.current_download_activity_id,
+                status=status,
+                details=details or current.get("details", ""),
+                title=title or current.get("title", "Activity"),
+            )
+            return
+        self._add_activity_entry(title=title, details=details, status=status, kind="event")
+
+    def _set_pipeline_progress(self, stage: str, stage_progress: float | None = None):
+        stage_ranges = {
+            "starting": (0.0, 5.0),
+            "connecting": (5.0, 10.0),
+            "downloading": (10.0, 78.0),
+            "scanning": (78.0, 84.0),
+            "metadata": (84.0, 90.0),
+            "copying": (90.0, 98.0),
+            "finishing": (98.0, 100.0),
+            "done": (100.0, 100.0),
+            "error": (0.0, 0.0),
+            "stopped": (0.0, 0.0),
+        }
+        start, end = stage_ranges.get(stage, (0.0, 100.0))
+        if stage_progress is None:
+            percent = end
+        else:
+            clamped = max(0.0, min(100.0, float(stage_progress)))
+            percent = start + ((end - start) * (clamped / 100.0))
+        self._set_download_progress_percent(percent)
+        self._update_activity_entry(self.current_download_activity_id, progress=percent)
+
+    def _get_activity_entry(self, entry_id: str | None):
+        if not entry_id:
+            return None
+        return next((entry for entry in self.session_activity if entry["id"] == entry_id), None)
+
+    def _update_current_download_activity(self, info: dict):
+        current = self._get_activity_entry(self.current_download_activity_id)
+        if not current:
+            return
+        details = info.get("details", "") or current.get("details", "")
+        artwork_path = current.get("artwork_path", "")
+        if details and Path(details).suffix.lower() in AUDIO_EXTENSIONS:
+            artwork_path = self._find_thumbnail_for_audio(details)
+        self._update_activity_entry(
+            self.current_download_activity_id,
+            title=info.get("title") or current.get("title", "Preparing download"),
+            artist=info.get("artist") or current.get("artist", ""),
+            status="Downloading",
+            details=details,
+            artwork_path=artwork_path,
+        )
+        if info.get("progress") is not None:
+            self._set_pipeline_progress("downloading", info["progress"])
+
+    def _render_activity_feed(self):
+        if not hasattr(self, "activity_feed"):
+            return
+        for child in self.activity_feed.winfo_children():
+            child.destroy()
+        self.activity_card_widgets.clear()
+        if not self.session_activity:
+            self.activity_empty_label = ttk.Label(
+                self.activity_feed,
+                text="No activity yet. Start a download and the session feed will appear here.",
+                style="CardSubtle.TLabel",
+                wraplength=900,
+                justify="left",
+            )
+            self.activity_empty_label.grid(row=0, column=0, sticky="w", padx=12, pady=12)
+            self._sync_activity_canvas()
+            return
+        for index, entry in enumerate(self.session_activity):
+            card = ttk.Frame(self.activity_feed, style="Card.TFrame", padding=12)
+            card.grid(row=index, column=0, sticky="ew", padx=4, pady=(0, 10))
+            card.columnconfigure(1, weight=1)
+            preview = ttk.Label(card, text="No preview", style="CardChip.TLabel", anchor="center", width=16)
+            preview.grid(row=0, column=0, rowspan=4, sticky="nsw", padx=(0, 12))
+            image = self._load_activity_thumbnail(entry)
+            if image:
+                preview.configure(image=image, text="")
+            title_text = entry.get("title", "Activity")
+            artist_text = entry.get("artist", "")
+            ttk.Label(card, text=title_text, style="CardTitle.TLabel").grid(row=0, column=1, sticky="w")
+            if artist_text:
+                ttk.Label(card, text=artist_text, style="CardSubtle.TLabel").grid(row=1, column=1, sticky="w", pady=(2, 0))
+            progress_value = entry.get("progress")
+            progress_row = ttk.Frame(card, style="Card.TFrame")
+            progress_row.grid(row=2, column=1, sticky="ew", pady=(8, 0))
+            progress_row.columnconfigure(0, weight=1)
+            progress_bar = ttk.Progressbar(progress_row, mode="determinate", maximum=100)
+            progress_bar.grid(row=0, column=0, sticky="ew")
+            if progress_value is None:
+                progress_bar.configure(value=0)
+                progress_label = "0%"
+            else:
+                progress_bar.configure(value=max(0, min(100, float(progress_value))))
+                progress_label = f"{int(round(float(progress_value)))}%"
+            ttk.Label(progress_row, text=progress_label, style="CardSubtle.TLabel").grid(row=0, column=1, sticky="e", padx=(10, 0))
+            details_parts = [part for part in (entry.get("status", ""), entry.get("details", ""), entry.get("subtitle", "")) if part]
+            ttk.Label(card, text=" | ".join(details_parts), style="CardSubtle.TLabel", wraplength=980, justify="left").grid(row=3, column=1, sticky="ew", pady=(8, 0))
+            action_text = "Delete"
+            button_state = "normal" if entry.get("can_delete") and (entry.get("source_path") or entry.get("spotify_path")) else "disabled"
+            ttk.Button(
+                card,
+                text=action_text,
+                command=lambda item_id=entry["id"]: self._delete_activity_entry(item_id),
+                style="Danger.TButton",
+                state=button_state,
+            ).grid(row=0, column=2, rowspan=4, sticky="ne", padx=(12, 0))
+            self.activity_card_widgets[entry["id"]] = card
+        self._sync_activity_canvas()
+
+    def _delete_activity_entry(self, entry_id: str):
+        target = next((entry for entry in self.session_activity if entry["id"] == entry_id), None)
+        if not target:
+            return
+        row = {
+            "source_path": target.get("source_path", ""),
+            "spotify_path": target.get("spotify_path", ""),
+            "title": target.get("title", ""),
+            "artist": target.get("artist", ""),
+            "artwork_path": target.get("artwork_path", ""),
+        }
+        self._delete_output_rows([row])
+        self._update_activity_entry(
+            entry_id,
+            status="Deleted",
+            details="Files were removed from disk.",
+            progress=100,
+            can_delete=False,
+        )
 
     def _kill_process_hard(self, process):
         if not process:
@@ -1711,10 +2015,11 @@ class App:
         process = self.download_process
         if process and process.poll() is None:
             try:
-                process.terminate()
-                self._log("Stopping download...")
+                self._log("Force-stopping active download and child processes...")
+                self._kill_process_hard(process)
             except Exception as exc:
                 self._log(f"Could not stop download cleanly: {exc}")
+        self.download_process = None
 
     def _start_download(self):
         url = self.url_var.get().strip()
@@ -1758,7 +2063,19 @@ class App:
         self.last_metadata_rows = []
         self.last_processed_rows = []
         self._set_download_state("running")
+        self._set_download_progress_percent(0)
         self._log("Starting download pipeline...")
+        self.current_download_activity_id = self._add_activity_entry(
+            title="Preparing download",
+            artist="",
+            status="Starting",
+            details=url,
+            subtitle="Waiting for source details...",
+            progress=0,
+            kind="download",
+            can_delete=False,
+        )
+        self._set_pipeline_progress("starting", 0)
         self.worker = threading.Thread(target=self._download_worker, args=(url, import_folder, spotify_folder), daemon=True)
         self.worker.start()
         self.root.after(500, self._watch_worker)
@@ -1781,10 +2098,34 @@ class App:
             self.last_downloaded_files = files
             rows = self._build_metadata_rows(files)
             self.last_metadata_rows = rows
+            self.root.after(0, lambda: self._set_pipeline_progress("metadata", 100))
             if self.stop_requested.is_set():
                 self._log("Download stopped.")
+                self.root.after(0, lambda: self._update_activity_entry(self.current_download_activity_id, status="Stopped", details="Download was stopped before completion.", progress=0))
+                self.root.after(0, lambda: self._set_pipeline_progress("stopped", 0))
                 return
             self._log(f"Downloaded {len(files)} file(s).")
+            if rows:
+                summary_title = rows[0].get("title", "Download complete")
+                summary_artist = rows[0].get("artist", "")
+                if len(rows) > 1:
+                    summary_title = f"{len(rows)} files downloaded"
+                    artists = {row.get('artist', '') for row in rows if row.get('artist', '')}
+                    summary_artist = "Multiple artists" if len(artists) > 1 else next(iter(artists), "")
+                summary_details = rows[0].get("filename", "") if len(rows) == 1 else rows[0].get("playlist", "Playlist import")
+                self.root.after(0, lambda: self._update_activity_entry(
+                    self.current_download_activity_id,
+                    title=summary_title,
+                    artist=summary_artist,
+                    status="Downloaded",
+                    details=summary_details,
+                    subtitle=rows[0].get("source_path", ""),
+                    artwork_path=rows[0].get("artwork_path", ""),
+                    source_path=rows[0].get("source_path", ""),
+                    spotify_path=rows[0].get("spotify_path", ""),
+                    can_delete=True,
+                ))
+                self.root.after(0, lambda: self._set_pipeline_progress("metadata", 100))
             if files:
                 self._remember_download_url(url)
 
@@ -1794,14 +2135,20 @@ class App:
                 self._process_and_send_rows(rows, spotify_folder)
 
             self._log("Pipeline finished.")
+            self.root.after(0, lambda: self._update_activity_entry(self.current_download_activity_id, status="Finished", details="Processing completed for this session."))
+            self.root.after(0, lambda: self._set_pipeline_progress("done", 100))
             if self.open_folder_var.get():
                 self._open_folder(spotify_folder if self.copy_to_spotify_folder_var.get() else import_folder)
         except Exception as exc:
             if self.stop_requested.is_set():
                 self._log("Download stopped.")
+                self.root.after(0, lambda: self._update_activity_entry(self.current_download_activity_id, status="Stopped", details="Download was stopped.", progress=0))
+                self.root.after(0, lambda: self._set_pipeline_progress("stopped", 0))
             else:
                 self._set_download_state("error")
                 self._log(f"ERROR: {exc}")
+                self.root.after(0, lambda: self._update_activity_entry(self.current_download_activity_id, status="Error", details=str(exc), progress=0))
+                self.root.after(0, lambda: self._set_pipeline_progress("error", 0))
                 self.root.after(0, lambda: messagebox.showerror(APP_TITLE, f"Download failed.\n\n{exc}"))
 
     def _open_folder(self, folder: str):
@@ -1859,6 +2206,8 @@ class App:
             cmd.insert(-1, "--no-keep-video")
 
         self._log("Connecting to source...")
+        self.root.after(0, lambda: self._update_activity_entry(self.current_download_activity_id, status="Connecting", details=url))
+        self.root.after(0, lambda: self._set_pipeline_progress("connecting", 100))
 
         process = subprocess.Popen(
             cmd,
@@ -1874,9 +2223,11 @@ class App:
             line = line.rstrip()
             if line:
                 self._log(line)
+                activity_info = self._extract_activity_info_from_line(line)
+                self.root.after(0, lambda info=activity_info: self._update_current_download_activity(info))
             if self.stop_requested.is_set() and process.poll() is None:
                 try:
-                    process.terminate()
+                    self._kill_process_hard(process)
                 except Exception:
                     pass
                 break
@@ -1888,6 +2239,9 @@ class App:
             raise RuntimeError("Download stopped by user.")
         if return_code != 0:
             raise RuntimeError(f"yt-dlp exited with code {return_code}")
+
+        self.root.after(0, lambda: self._update_activity_entry(self.current_download_activity_id, status="Scanning", details="Collecting downloaded files..."))
+        self.root.after(0, lambda: self._set_pipeline_progress("scanning", 100))
 
         touched_files = []
         for path in Path(folder).rglob("*"):
@@ -2017,6 +2371,7 @@ class App:
     def _reload_recent_files_action(self):
         if self._reload_recent_state():
             self._populate_workspace_views()
+            self._record_session_event("Reloaded recent files", "Recent files were refreshed from the configured folders.")
             messagebox.showinfo(APP_TITLE, "Recent files were reloaded from the configured folders.")
             return
         messagebox.showinfo(APP_TITLE, "No recent files were found. Point the app at the correct download and Spotify folders in Settings, then try again.")
@@ -2256,10 +2611,34 @@ class App:
         path = Path(audio_path)
         if not path.exists() and not path.parent.exists():
             return ""
-        for suffix in (".jpg", ".jpeg", ".png", ".webp", ".bmp"):
+        image_suffixes = (".jpg", ".jpeg", ".png", ".webp", ".bmp")
+        for suffix in image_suffixes:
             candidate = path.with_suffix(suffix)
             if candidate.exists():
                 return str(candidate)
+        try:
+            sibling_images = [candidate for candidate in path.parent.iterdir() if candidate.is_file() and candidate.suffix.lower() in image_suffixes]
+        except Exception:
+            sibling_images = []
+        exact_prefix = f"{path.stem}."
+        for candidate in sibling_images:
+            if candidate.name.startswith(exact_prefix):
+                return str(candidate)
+        for candidate in sibling_images:
+            if candidate.stem.startswith(path.stem) or path.stem.startswith(candidate.stem):
+                return str(candidate)
+        try:
+            path_mtime = path.stat().st_mtime_ns if path.exists() else None
+        except Exception:
+            path_mtime = None
+        if path_mtime is not None and sibling_images:
+            def image_distance(candidate: Path):
+                try:
+                    return abs(candidate.stat().st_mtime_ns - path_mtime)
+                except Exception:
+                    return 10**18
+            sibling_images.sort(key=image_distance)
+            return str(sibling_images[0])
         return ""
 
     def _choose_artwork_file(self) -> str:
@@ -2357,6 +2736,9 @@ class App:
         self._apply_metadata_form()
         self._populate_metadata_tree()
         self._log("Metadata changes saved.")
+        if self.metadata_selected_index is not None and self.metadata_selected_index < len(self.last_metadata_rows):
+            row = self.last_metadata_rows[self.metadata_selected_index]
+            self._record_session_event("Metadata saved", row.get("title", "Track"))
         if self.copy_to_spotify_folder_var.get() and self.last_metadata_rows:
             self._process_and_send_rows(self.last_metadata_rows, self.spotify_folder_var.get().strip())
 
@@ -2954,6 +3336,10 @@ class App:
         if artwork_path and Path(artwork_path).exists():
             self._write_cover_art_from_image(Path(artwork_path), mp3_path)
             return
+        discovered_artwork = self._find_thumbnail_for_audio(row.get("source_path", "") or mp3_path)
+        if discovered_artwork and Path(discovered_artwork).exists():
+            self._write_cover_art_from_image(Path(discovered_artwork), mp3_path)
+            return
         source_art = Path(row.get("source_path", ""))
         if source_art.exists():
             self._copy_cover_art_between_files(source_art, mp3_path)
@@ -3031,6 +3417,7 @@ class App:
     def _process_and_send_rows(self, rows, spotify_folder: str):
         Path(spotify_folder).mkdir(parents=True, exist_ok=True)
         processed = []
+        total_rows = max(1, len(rows))
         for row in rows:
             source = row.get("source_path")
             if not source or not Path(source).exists():
@@ -3044,10 +3431,23 @@ class App:
             processed_row["spotify_path"] = str(destination)
             processed.append(processed_row)
             self._log(f"Sent to Spotify folder: {destination}")
+            self.root.after(0, lambda count=len(processed), total=total_rows: self._set_pipeline_progress("copying", (count / total) * 100))
         if processed:
             self.last_processed_rows = processed
             self._write_manifest(processed, spotify_folder)
             self._log(f"Wrote manifest: {Path(spotify_folder) / 'spotify_local_manifest.csv'}")
+            first = processed[0]
+            self.root.after(0, lambda: self._update_activity_entry(
+                self.current_download_activity_id,
+                status="Copied to Spotify",
+                details=f"{len(processed)} file(s) copied to Spotify-ready folder.",
+                subtitle=str(Path(spotify_folder) / "spotify_local_manifest.csv"),
+                artwork_path=first.get("artwork_path", ""),
+                source_path=first.get("source_path", ""),
+                spotify_path=first.get("spotify_path", ""),
+                can_delete=True,
+            ))
+            self.root.after(0, lambda: self._set_pipeline_progress("finishing", 100))
 
     def _delete_output_rows(self, rows):
         deleted_count = 0
@@ -3096,6 +3496,7 @@ class App:
             messagebox.showinfo(APP_TITLE, "There is no recent download loaded yet.")
             return
         self._process_and_send_rows(self.last_metadata_rows, self.spotify_folder_var.get().strip())
+        self._record_session_event("Sent last download to Spotify folder", f"{len(self.last_metadata_rows)} item(s) copied.")
         messagebox.showinfo(APP_TITLE, "Last download copied into the Spotify-ready folder.")
 
     def _export_build_script(self):
@@ -3115,10 +3516,11 @@ python -m pip install --upgrade yt-dlp ffmpeg-python mutagen pyinstaller
 pyinstaller --noconfirm --onefile --windowed --name "SpotifyLocalFilesPipeline" "{script_name}"
 echo.
 echo Build finished. Check the dist folder for SpotifyLocalFilesPipeline.exe
-pause
+        pause
 '''
         Path(target).write_text(script, encoding="utf-8")
         self._log(f"Exported build script: {target}")
+        self._record_session_event("Exported build script", str(target))
         messagebox.showinfo(APP_TITLE, "Build script exported.")
 
 
