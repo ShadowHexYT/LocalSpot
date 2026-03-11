@@ -809,38 +809,55 @@ class App:
         deps.grid(row=2, column=0, sticky="ew", pady=(0, 12))
         deps.columnconfigure(0, weight=1)
 
-        status_frame = ttk.LabelFrame(deps, text="Connection", padding=10)
-        status_frame.pack(fill="x", anchor="w")
+        status_frame = ttk.LabelFrame(deps, text="Status", padding=10)
+        status_frame.grid(row=0, column=0, sticky="ew")
         self.tool_status_rows = {}
         self.dependency_link_labels = []
-        for service_name, key in (("yt-dlp", "yt-dlp"), ("ffmpeg", "ffmpeg"), ("mutagen", "mutagen"), ("pyinstaller", "pyinstaller")):
+        dependency_rows = (("yt-dlp", "yt-dlp"), ("ffmpeg", "ffmpeg"), ("mutagen", "mutagen"), ("pyinstaller", "pyinstaller"))
+        for index, (service_name, key) in enumerate(dependency_rows):
             row = ttk.Frame(status_frame)
-            row.pack(fill="x", anchor="w", pady=2)
+            row.grid(row=0, column=index, sticky="w", padx=(0, 16) if index < len(dependency_rows) - 1 else 0)
             ttk.Label(row, text=f"{service_name}:").pack(side="left")
             status_label = tk.Label(row, text="Checking...", anchor="w", font=("Segoe UI", 10, "bold"))
             status_label.pack(side="left", padx=(8, 0))
             self.tool_status_rows[key] = status_label
 
-        instructions_frame = ttk.LabelFrame(deps, text="Instructions", padding=10)
-        instructions_frame.pack(fill="x", anchor="w", pady=(10, 0))
+        instructions_frame = ttk.LabelFrame(deps, text="Install", padding=10)
+        instructions_frame.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        instructions_frame.columnconfigure(0, weight=1)
         ttk.Label(
             instructions_frame,
-            text="Install the missing tools below, or point the app at the executable in Install Locations. mutagen and pyinstaller are optional Python packages.",
-            wraplength=920,
+            text="Required: yt-dlp and ffmpeg. Optional: mutagen for tag writing and pyinstaller for packaging. You can install missing tools or set custom paths above.",
+            wraplength=760,
             justify="left",
-        ).pack(anchor="w")
-        self._add_dependency_link(instructions_frame, "Download yt-dlp", "https://github.com/yt-dlp/yt-dlp/releases/latest")
-        self._add_dependency_link(instructions_frame, "Download FFmpeg", "https://www.gyan.dev/ffmpeg/builds/")
-        self._add_dependency_link(instructions_frame, "mutagen on PyPI", "https://pypi.org/project/mutagen/")
-        self._add_dependency_link(instructions_frame, "PyInstaller docs", "https://pyinstaller.org/en/stable/")
+        ).grid(row=0, column=0, sticky="w")
         ttk.Label(
             instructions_frame,
-            text="Quick install commands: winget install yt-dlp.yt-dlp | winget install Gyan.FFmpeg | python -m pip install mutagen pyinstaller",
-            wraplength=920,
+            text="Quick install: winget install yt-dlp.yt-dlp, winget install Gyan.FFmpeg, python -m pip install mutagen pyinstaller",
+            wraplength=760,
             justify="left",
-        ).pack(anchor="w", pady=(8, 0))
+            style="Subtle.TLabel",
+        ).grid(row=1, column=0, sticky="w", pady=(6, 0))
 
-        ttk.Button(deps, text="Refresh dependency check", command=self._refresh_dependency_check).pack(anchor="w", pady=(10, 0))
+        link_row = ttk.Frame(instructions_frame)
+        link_row.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        for column in range(5):
+            link_row.columnconfigure(column, weight=1)
+        link_specs = [
+            ("yt-dlp", "https://github.com/yt-dlp/yt-dlp/releases/latest"),
+            ("FFmpeg", "https://www.gyan.dev/ffmpeg/builds/"),
+            ("mutagen", "https://pypi.org/project/mutagen/"),
+            ("PyInstaller", "https://pyinstaller.org/en/stable/"),
+        ]
+        for index, (label, url) in enumerate(link_specs):
+            ttk.Button(link_row, text=label, command=lambda target=url: self._open_url(target), style="Secondary.TButton").grid(
+                row=0,
+                column=index,
+                sticky="ew",
+                padx=(0, 8) if index < len(link_specs) - 1 else 0,
+            )
+
+        ttk.Button(deps, text="Refresh dependency check", command=self._refresh_dependency_check, style="Secondary.TButton").grid(row=2, column=0, sticky="w", pady=(10, 0))
         self._refresh_dependency_check()
 
         utility_actions = ttk.LabelFrame(settings, text="Utilities", padding=12)
