@@ -721,7 +721,7 @@ class App:
         self.settings_canvas.configure(yscrollcommand=settings_scrollbar.set)
         self.settings_canvas.grid(row=0, column=0, sticky="nsew")
         settings_scrollbar.grid(row=0, column=1, sticky="ns")
-        self.settings_content = ttk.Frame(self.settings_canvas, padding=12, style="Shell.TFrame")
+        self.settings_content = ttk.Frame(self.settings_canvas, padding=12, style="DividerHost.TFrame")
         self.settings_content.columnconfigure(0, weight=1)
         self.settings_canvas_window = self.settings_canvas.create_window((0, 0), window=self.settings_content, anchor="nw")
         self.settings_content.bind("<Configure>", self._sync_settings_canvas)
@@ -740,7 +740,7 @@ class App:
             justify="left",
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
-        control_stack = ttk.Frame(home, style="Shell.TFrame")
+        control_stack = ttk.Frame(home, style="DividerHost.TFrame")
         control_stack.grid(row=1, column=0, sticky="nsew", padx=(0, 12))
         control_stack.columnconfigure(0, weight=1)
 
@@ -789,7 +789,7 @@ class App:
         ttk.Checkbutton(quick_options, text="Copy to Spotify-ready folder", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").grid(row=2, column=0, sticky="w", pady=(6, 0))
         ttk.Checkbutton(quick_options, text="Embed MP3 tags and artwork", variable=self.write_tags_var, style="Panel.TCheckbutton").grid(row=3, column=0, sticky="w", pady=(6, 0))
 
-        right_stack = ttk.Frame(home, style="Shell.TFrame")
+        right_stack = ttk.Frame(home, style="DividerHost.TFrame")
         right_stack.grid(row=1, column=1, sticky="nsew")
         right_stack.columnconfigure(0, weight=1)
         right_stack.rowconfigure(0, weight=1)
@@ -1085,7 +1085,8 @@ class App:
         style.configure("Shell.TFrame", background=colors["panel_soft"])
         style.configure("Card.TFrame", background=colors["panel"])
         style.configure("Panel.TFrame", background=colors["panel"])
-        style.configure("Divider.TFrame", background=colors["panel_soft"] if mode == "dark" else "#b8d4ff")
+        style.configure("Divider.TFrame", background="#c9a7ff" if mode == "dark" else "#b8d4ff")
+        style.configure("DividerHost.TFrame", background=colors["panel"])
         style.configure("Toolbar.TFrame", background=colors["panel"])
         style.configure("TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10))
         style.configure("Hero.TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10, "bold"))
