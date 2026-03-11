@@ -822,7 +822,7 @@ class App:
         self._build_metadata_panel()
         self._build_files_panel()
         self._build_trim_panel()
-        self._show_workspace_panel("metadata")
+        self._show_workspace_panel("metadata", focus_tab=False)
 
         install_frame = ttk.LabelFrame(settings, text="Install Locations", padding=12)
         install_frame.grid(row=0, column=0, sticky="ew", pady=(0, 12))
@@ -1069,7 +1069,16 @@ class App:
         style.configure("Treeview.Heading", background=colors["panel_alt"], foreground=colors["fg"], padding=(8, 8), borderwidth=0)
         style.map("Treeview", background=[("selected", colors["accent_soft"])], foreground=[("selected", colors["fg"])])
         style.map("Treeview.Heading", background=[("active", colors["panel"])])
-        style.configure("Accent.Horizontal.TProgressbar", background=colors["accent"], troughcolor=colors["panel_alt"], bordercolor=colors["panel_alt"], lightcolor=colors["accent"], darkcolor=colors["accent"])
+        progress_light = "#8df0a8" if mode == "dark" else "#9af5ae"
+        progress_dark = "#2f9e57" if mode == "dark" else "#2e8b57"
+        style.configure(
+            "Accent.Horizontal.TProgressbar",
+            background=progress_dark,
+            troughcolor=colors["panel_alt"],
+            bordercolor=colors["panel_alt"],
+            lightcolor=progress_light,
+            darkcolor=progress_dark,
+        )
         if hasattr(self, "log_text") and self.log_text:
             self.log_text.configure(bg=colors["field"], fg=colors["fg"], insertbackground=colors["fg"], selectbackground=colors["accent_soft"], relief="flat", font=("Segoe UI", 10), padx=10, pady=10, spacing1=4, spacing3=6)
         if hasattr(self, "activity_canvas") and self.activity_canvas:
@@ -1313,11 +1322,12 @@ class App:
         self.trim_save_button.grid(row=7, column=0, columnspan=2, sticky="ew", pady=(8, 8))
         ttk.Label(trim_details, text="Use this panel to give each saved clip a clear name and complete metadata before exporting.", style="CardSubtle.TLabel", wraplength=320, justify="left").grid(row=8, column=0, columnspan=2, sticky="nw")
 
-    def _show_workspace_panel(self, mode: str):
+    def _show_workspace_panel(self, mode: str, focus_tab: bool = True):
         self.workspace_mode = mode
         panel_map = {"metadata": self.metadata_panel, "files": self.files_panel, "trim": self.trim_panel}
         panel_map[mode].tkraise()
-        self.main_notebook.select(self.workspace)
+        if focus_tab:
+            self.main_notebook.select(self.workspace)
         self._animate_workspace_status()
 
     def _on_tab_changed(self, _event=None):
