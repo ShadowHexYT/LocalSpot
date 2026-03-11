@@ -562,8 +562,7 @@ class App:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title(APP_TITLE)
-        self.root.geometry("1020x820")
-        self.root.minsize(940, 740)
+        self._configure_root_window()
         self.root.protocol("WM_DELETE_WINDOW", self._force_close_app)
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
@@ -639,6 +638,20 @@ class App:
         self.file_artwork_path_var = tk.StringVar()
         self._build_ui()
         self._poll_log_queue()
+
+    def _configure_root_window(self):
+        self.root.update_idletasks()
+        screen_width = max(self.root.winfo_screenwidth(), 1280)
+        screen_height = max(self.root.winfo_screenheight(), 720)
+        target_width = min(1600, screen_width - 120)
+        target_height = int(target_width * 9 / 16)
+        if target_height > screen_height - 120:
+            target_height = screen_height - 120
+            target_width = int(target_height * 16 / 9)
+        min_width = min(1280, screen_width)
+        min_height = int(min_width * 9 / 16)
+        self.root.geometry(f"{target_width}x{target_height}")
+        self.root.minsize(min_width, min_height)
 
     def _build_ui(self):
         self.main = ttk.Frame(self.root, padding=12)
@@ -832,12 +845,26 @@ class App:
 
         utility_actions = ttk.LabelFrame(settings, text="Utilities", padding=12)
         utility_actions.grid(row=3, column=0, sticky="ew")
-        ttk.Button(utility_actions, text="Reload Recent Files", command=self._reload_recent_files_action).pack(side="left")
-        ttk.Button(utility_actions, text="Open Metadata Editor", command=self._open_metadata_editor).pack(side="left", padx=(8, 0))
-        ttk.Button(utility_actions, text="Manage Created Files", command=self._open_output_file_manager).pack(side="left", padx=(8, 0))
-        ttk.Button(utility_actions, text="Send Last Download to Spotify Folder", command=self._send_last_download_to_spotify_folder).pack(side="left", padx=(8, 0))
-        ttk.Button(utility_actions, text="Export Build Script", command=self._export_build_script).pack(side="left", padx=(8, 0))
-        ttk.Button(utility_actions, text="Clear Log", command=self._clear_log).pack(side="right")
+        for column in range(3):
+            utility_actions.columnconfigure(column, weight=1)
+        utility_buttons = [
+            ("Reload Recent Files", self._reload_recent_files_action),
+            ("Open Metadata Editor", self._open_metadata_editor),
+            ("Manage Created Files", self._open_output_file_manager),
+            ("Send Last Download to Spotify Folder", self._send_last_download_to_spotify_folder),
+            ("Export Build Script", self._export_build_script),
+            ("Clear Log", self._clear_log),
+        ]
+        for index, (label, command) in enumerate(utility_buttons):
+            row = index // 3
+            column = index % 3
+            ttk.Button(utility_actions, text=label, command=command).grid(
+                row=row,
+                column=column,
+                sticky="ew",
+                padx=(0, 8) if column < 2 else 0,
+                pady=(0, 8) if row == 0 else 0,
+            )
         self._apply_theme(self.theme_mode_var.get())
         self._set_download_state("idle")
 
