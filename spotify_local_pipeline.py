@@ -694,7 +694,7 @@ class App:
 
         home = ttk.Frame(self.main_notebook, padding=12)
         self.workspace = ttk.Frame(self.main_notebook, padding=12)
-        settings = ttk.Frame(self.main_notebook, padding=12)
+        settings = ttk.Frame(self.main_notebook, padding=0)
         self.main_notebook.add(home, text="Home")
         self.main_notebook.add(self.workspace, text="Workspace")
         self.main_notebook.add(settings, text="Settings")
@@ -705,6 +705,22 @@ class App:
         self.workspace.columnconfigure(0, weight=1)
         self.workspace.rowconfigure(2, weight=1)
         settings.columnconfigure(0, weight=1)
+        settings.rowconfigure(0, weight=1)
+
+        settings_shell = ttk.Frame(settings, style="Shell.TFrame", padding=8)
+        settings_shell.grid(row=0, column=0, sticky="nsew")
+        settings_shell.columnconfigure(0, weight=1)
+        settings_shell.rowconfigure(0, weight=1)
+        self.settings_canvas = tk.Canvas(settings_shell, highlightthickness=0, borderwidth=0)
+        settings_scrollbar = ttk.Scrollbar(settings_shell, orient="vertical", command=self.settings_canvas.yview)
+        self.settings_canvas.configure(yscrollcommand=settings_scrollbar.set)
+        self.settings_canvas.grid(row=0, column=0, sticky="nsew")
+        settings_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.settings_content = ttk.Frame(self.settings_canvas, padding=12, style="Shell.TFrame")
+        self.settings_content.columnconfigure(0, weight=1)
+        self.settings_canvas_window = self.settings_canvas.create_window((0, 0), window=self.settings_content, anchor="nw")
+        self.settings_content.bind("<Configure>", self._sync_settings_canvas)
+        self.settings_canvas.bind("<Configure>", self._resize_settings_canvas)
 
         home_intro = ttk.Frame(home, style="Card.TFrame", padding=14)
         home_intro.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
@@ -824,7 +840,7 @@ class App:
         self._build_trim_panel()
         self._show_workspace_panel("metadata", focus_tab=False)
 
-        install_frame = ttk.LabelFrame(settings, text="Install Locations", padding=12)
+        install_frame = ttk.LabelFrame(self.settings_content, text="Install Locations", padding=12)
         install_frame.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         install_frame.columnconfigure(1, weight=1)
         ttk.Label(install_frame, text="Custom yt-dlp path", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
@@ -844,7 +860,7 @@ class App:
         ttk.Button(ffmpeg_frame, text="Auto-detect", command=lambda: self._autodetect_tool_path("ffmpeg")).grid(row=0, column=2, padx=(8, 0))
         ttk.Button(ffmpeg_frame, text="Clear", command=self._clear_ffmpeg_path).grid(row=0, column=3, padx=(8, 0))
 
-        options = ttk.LabelFrame(settings, text="Pipeline Options", padding=12)
+        options = ttk.LabelFrame(self.settings_content, text="Pipeline Options", padding=12)
         options.grid(row=1, column=0, sticky="ew", pady=(0, 12))
         ttk.Checkbutton(options, text="Allow playlist downloads", variable=self.playlist_var, style="Panel.TCheckbutton").pack(anchor="w")
         ttk.Checkbutton(options, text="Review metadata before sending to Spotify folder", variable=self.review_before_import_var, style="Panel.TCheckbutton").pack(anchor="w")
@@ -853,7 +869,7 @@ class App:
         ttk.Checkbutton(options, text="Open output folder when finished", variable=self.open_folder_var, style="Panel.TCheckbutton").pack(anchor="w")
         ttk.Checkbutton(options, text="Keep temp files created during processing", variable=self.keep_temp_var, style="Panel.TCheckbutton").pack(anchor="w")
 
-        deps = ttk.LabelFrame(settings, text="Required Tools", padding=12)
+        deps = ttk.LabelFrame(self.settings_content, text="Required Tools", padding=12)
         deps.grid(row=2, column=0, sticky="ew", pady=(0, 12))
         deps.columnconfigure(0, weight=1)
 
@@ -909,7 +925,7 @@ class App:
         ttk.Button(deps, text="Refresh dependency check", command=self._refresh_dependency_check, style="Secondary.TButton").grid(row=2, column=0, sticky="w", pady=(10, 0))
         self._refresh_dependency_check()
 
-        utility_actions = ttk.LabelFrame(settings, text="Utilities", padding=12)
+        utility_actions = ttk.LabelFrame(self.settings_content, text="Utilities", padding=12)
         utility_actions.grid(row=3, column=0, sticky="ew")
         for column in range(3):
             utility_actions.columnconfigure(column, weight=1)
@@ -931,12 +947,12 @@ class App:
                 padx=(0, 8) if column < 2 else 0,
                 pady=(0, 8) if row == 0 else 0,
             )
-        log_frame = ttk.LabelFrame(settings, text="Background Log", padding=10)
+        log_frame = ttk.LabelFrame(self.settings_content, text="Background Log", padding=10)
         log_frame.grid(row=4, column=0, sticky="nsew", pady=(12, 0))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
-        settings.rowconfigure(4, weight=1)
-        self.log_text = tk.Text(log_frame, wrap="word", height=12)
+        self.settings_content.rowconfigure(4, weight=1)
+        self.log_text = tk.Text(log_frame, wrap="word", height=16)
         self.log_text.grid(row=0, column=0, sticky="nsew")
         log_scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
         log_scrollbar.grid(row=0, column=1, sticky="ns")
@@ -1083,6 +1099,8 @@ class App:
             self.log_text.configure(bg=colors["field"], fg=colors["fg"], insertbackground=colors["fg"], selectbackground=colors["accent_soft"], relief="flat", font=("Segoe UI", 10), padx=10, pady=10, spacing1=4, spacing3=6)
         if hasattr(self, "activity_canvas") and self.activity_canvas:
             self.activity_canvas.configure(background=colors["panel_soft"])
+        if hasattr(self, "settings_canvas") and self.settings_canvas:
+            self.settings_canvas.configure(background=colors["panel_soft"])
         if hasattr(self, "trim_canvas") and self.trim_canvas:
             self.trim_canvas.configure(
                 background=colors["field"],
@@ -1780,6 +1798,14 @@ class App:
     def _resize_activity_canvas(self, event):
         if hasattr(self, "activity_canvas_window"):
             self.activity_canvas.itemconfigure(self.activity_canvas_window, width=event.width)
+
+    def _sync_settings_canvas(self, _event=None):
+        if hasattr(self, "settings_canvas") and hasattr(self, "settings_canvas_window"):
+            self.settings_canvas.configure(scrollregion=self.settings_canvas.bbox("all"))
+
+    def _resize_settings_canvas(self, event):
+        if hasattr(self, "settings_canvas_window"):
+            self.settings_canvas.itemconfigure(self.settings_canvas_window, width=event.width)
 
     def _next_activity_id(self) -> str:
         self.activity_sequence += 1
