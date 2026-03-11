@@ -754,24 +754,8 @@ class App:
         self.download_progress.pack(side="left", padx=(12, 0))
         ttk.Label(action_row, textvariable=self.download_state_var, style="Chip.TLabel").pack(side="left", padx=(12, 0))
 
-        queue_frame = ttk.LabelFrame(control_stack, text="In Queue", padding=14)
-        queue_frame.grid(row=1, column=0, sticky="ew", pady=(10, 0))
-        queue_frame.columnconfigure(0, weight=1)
-        queue_tree_frame = ttk.Frame(queue_frame, style="Card.TFrame")
-        queue_tree_frame.grid(row=0, column=0, sticky="ew")
-        queue_tree_frame.columnconfigure(0, weight=1)
-        self.queue_tree = ttk.Treeview(queue_tree_frame, columns=("url",), show="headings", height=4, selectmode="browse")
-        self.queue_tree.heading("url", text="Queued Download")
-        self.queue_tree.column("url", anchor="w", stretch=True, width=420)
-        queue_ybar = ttk.Scrollbar(queue_tree_frame, orient="vertical", command=self.queue_tree.yview)
-        self.queue_tree.configure(yscrollcommand=queue_ybar.set)
-        self.queue_tree.grid(row=0, column=0, sticky="ew")
-        queue_ybar.grid(row=0, column=1, sticky="ns")
-        self.queue_empty_label = ttk.Label(queue_frame, text="Nothing queued.", style="CardSubtle.TLabel")
-        self.queue_empty_label.grid(row=1, column=0, sticky="w", pady=(8, 0))
-
         form_card = ttk.LabelFrame(control_stack, text="Download Setup", padding=14)
-        form_card.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        form_card.grid(row=1, column=0, sticky="ew", pady=(10, 0))
         form_card.columnconfigure(0, weight=1)
         form = ttk.Frame(form_card, style="Card.TFrame")
         form.grid(row=0, column=0, sticky="ew")
@@ -793,14 +777,19 @@ class App:
         ttk.Combobox(form, textvariable=self.mp3_quality_var, state="readonly", values=["Good", "Better", "Best"]).grid(row=2, column=1, sticky="w", pady=(0, 8))
 
         quick_options = ttk.LabelFrame(control_stack, text="Quick Options", padding=14)
-        quick_options.grid(row=3, column=0, sticky="ew", pady=(10, 0))
+        quick_options.grid(row=2, column=0, sticky="ew", pady=(10, 0))
         ttk.Checkbutton(quick_options, text="Allow playlists", variable=self.playlist_var, style="Panel.TCheckbutton").grid(row=0, column=0, sticky="w")
         ttk.Checkbutton(quick_options, text="Review metadata before import", variable=self.review_before_import_var, style="Panel.TCheckbutton").grid(row=1, column=0, sticky="w", pady=(6, 0))
         ttk.Checkbutton(quick_options, text="Copy to Spotify-ready folder", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").grid(row=2, column=0, sticky="w", pady=(6, 0))
         ttk.Checkbutton(quick_options, text="Embed MP3 tags and artwork", variable=self.write_tags_var, style="Panel.TCheckbutton").grid(row=3, column=0, sticky="w", pady=(6, 0))
 
-        activity_frame = ttk.LabelFrame(home, text="Session Activity", padding=10)
-        activity_frame.grid(row=1, column=1, sticky="nsew")
+        right_stack = ttk.Frame(home, style="Shell.TFrame")
+        right_stack.grid(row=1, column=1, sticky="nsew")
+        right_stack.columnconfigure(0, weight=1)
+        right_stack.rowconfigure(0, weight=1)
+
+        activity_frame = ttk.LabelFrame(right_stack, text="Session Activity", padding=10)
+        activity_frame.grid(row=0, column=0, sticky="nsew")
         activity_frame.columnconfigure(0, weight=1)
         activity_frame.rowconfigure(0, weight=1)
         self.activity_canvas = tk.Canvas(activity_frame, highlightthickness=0, borderwidth=0)
@@ -821,6 +810,26 @@ class App:
             justify="left",
         )
         self.activity_empty_label.grid(row=0, column=0, sticky="w", padx=12, pady=12)
+
+        queue_frame = ttk.LabelFrame(right_stack, text="In Queue", padding=10)
+        queue_frame.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        queue_frame.columnconfigure(0, weight=1)
+        queue_tree_frame = ttk.Frame(queue_frame, style="Card.TFrame")
+        queue_tree_frame.grid(row=0, column=0, sticky="ew")
+        queue_tree_frame.columnconfigure(0, weight=1)
+        self.queue_tree = ttk.Treeview(queue_tree_frame, columns=("url",), show="headings", height=4, selectmode="browse")
+        self.queue_tree.heading("url", text="Queued Download")
+        self.queue_tree.column("url", anchor="w", stretch=True, width=520)
+        queue_ybar = ttk.Scrollbar(queue_tree_frame, orient="vertical", command=self.queue_tree.yview)
+        self.queue_tree.configure(yscrollcommand=queue_ybar.set)
+        self.queue_tree.grid(row=0, column=0, sticky="ew")
+        queue_ybar.grid(row=0, column=1, sticky="ns")
+        self.queue_empty_label = ttk.Label(queue_frame, text="Nothing queued.", style="CardSubtle.TLabel")
+        self.queue_empty_label.grid(row=1, column=0, sticky="w", pady=(8, 0))
+        queue_actions = ttk.Frame(queue_frame, style="Card.TFrame")
+        queue_actions.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        queue_actions.columnconfigure(0, weight=1)
+        ttk.Button(queue_actions, text="Delete Selected", command=self._delete_selected_queue_item, style="Danger.TButton").pack(side="left")
 
         ttk.Label(home, text="Point Spotify Desktop at the Spotify-ready folder through Settings -> Local Files -> Add a source.", wraplength=960, style="Subtle.TLabel").grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self.main_notebook.select(home)
@@ -2128,6 +2137,20 @@ class App:
         self.download_queue.append(request)
         self._refresh_queue_view()
         self._log(f"Queued download: {url}")
+
+    def _delete_selected_queue_item(self):
+        if not hasattr(self, "queue_tree"):
+            return
+        selected = self.queue_tree.selection()
+        if not selected:
+            messagebox.showinfo(APP_TITLE, "Select a queued item first.")
+            return
+        index = int(selected[0])
+        if index < 0 or index >= len(self.download_queue):
+            return
+        removed = self.download_queue.pop(index)
+        self._refresh_queue_view()
+        self._log(f"Removed queued download: {removed.get('url', '')}")
 
     def _begin_download_job(self, url: str, import_folder: str, spotify_folder: str):
         self.last_downloaded_files = []
