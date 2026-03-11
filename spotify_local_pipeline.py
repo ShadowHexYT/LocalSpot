@@ -754,8 +754,10 @@ class App:
         self.download_progress.pack(side="left", padx=(12, 0))
         ttk.Label(action_row, textvariable=self.download_state_var, style="Chip.TLabel").pack(side="left", padx=(12, 0))
 
+        ttk.Frame(control_stack, style="Divider.TFrame", height=2).grid(row=1, column=0, sticky="ew", pady=(8, 8))
+
         form_card = ttk.LabelFrame(control_stack, text="Download Setup", padding=14)
-        form_card.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        form_card.grid(row=2, column=0, sticky="ew")
         form_card.columnconfigure(0, weight=1)
         form = ttk.Frame(form_card, style="Card.TFrame")
         form.grid(row=0, column=0, sticky="ew")
@@ -776,8 +778,10 @@ class App:
         ttk.Label(form, text="MP3 quality", style="Panel.TLabel").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
         ttk.Combobox(form, textvariable=self.mp3_quality_var, state="readonly", values=["Good", "Better", "Best"]).grid(row=2, column=1, sticky="w", pady=(0, 8))
 
+        ttk.Frame(control_stack, style="Divider.TFrame", height=2).grid(row=3, column=0, sticky="ew", pady=(8, 8))
+
         quick_options = ttk.LabelFrame(control_stack, text="Quick Options", padding=14)
-        quick_options.grid(row=2, column=0, sticky="ew", pady=(0, 0))
+        quick_options.grid(row=4, column=0, sticky="ew", pady=(0, 0))
         ttk.Checkbutton(quick_options, text="Allow playlists", variable=self.playlist_var, style="Panel.TCheckbutton").grid(row=0, column=0, sticky="w")
         ttk.Checkbutton(quick_options, text="Review metadata before import", variable=self.review_before_import_var, style="Panel.TCheckbutton").grid(row=1, column=0, sticky="w", pady=(6, 0))
         ttk.Checkbutton(quick_options, text="Copy to Spotify-ready folder", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").grid(row=2, column=0, sticky="w", pady=(6, 0))
@@ -811,8 +815,10 @@ class App:
         )
         self.activity_empty_label.grid(row=0, column=0, sticky="w", padx=12, pady=12)
 
+        ttk.Frame(right_stack, style="Divider.TFrame", height=2).grid(row=1, column=0, sticky="ew", pady=(8, 8))
+
         queue_frame = ttk.LabelFrame(right_stack, text="In Queue", padding=10)
-        queue_frame.grid(row=1, column=0, sticky="ew", pady=(0, 0))
+        queue_frame.grid(row=2, column=0, sticky="ew", pady=(0, 0))
         queue_frame.columnconfigure(0, weight=1)
         queue_frame.rowconfigure(0, weight=1)
         queue_list_shell = ttk.Frame(queue_frame, style="Shell.TFrame")
@@ -840,16 +846,20 @@ class App:
         self.workspace_status_label = ttk.Label(workspace_header, text="Open metadata, recent files, or trimming tools here.", style="Subtle.TLabel")
         self.workspace_status_label.grid(row=1, column=0, sticky="w", pady=(4, 0))
 
+        ttk.Frame(self.workspace, style="Divider.TFrame", height=2).grid(row=1, column=0, sticky="ew", pady=(0, 8))
+
         workspace_actions = ttk.LabelFrame(self.workspace, text="Workspace Tools", padding=12)
-        workspace_actions.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        workspace_actions.grid(row=2, column=0, sticky="ew")
         workspace_toolbar = ttk.Frame(workspace_actions, style="Toolbar.TFrame")
         workspace_toolbar.pack(fill="x")
         ttk.Button(workspace_toolbar, text="Metadata", command=self._open_metadata_editor, style="Workspace.TButton").pack(side="left")
         ttk.Button(workspace_toolbar, text="Trim", command=self._open_trim_from_selection, style="Workspace.TButton").pack(side="left", padx=(8, 0))
         ttk.Button(workspace_toolbar, text="Refresh", command=self._refresh_workspace_files, style="Secondary.TButton").pack(side="left", padx=(12, 0))
 
+        ttk.Frame(self.workspace, style="Divider.TFrame", height=2).grid(row=3, column=0, sticky="ew", pady=(8, 8))
+
         self.workspace_stack = ttk.Frame(self.workspace, style="Shell.TFrame", padding=8)
-        self.workspace_stack.grid(row=2, column=0, sticky="nsew")
+        self.workspace_stack.grid(row=4, column=0, sticky="nsew")
         self.workspace_stack.columnconfigure(0, weight=1)
         self.workspace_stack.rowconfigure(0, weight=1)
 
@@ -865,7 +875,7 @@ class App:
         self._show_workspace_panel("files", focus_tab=False)
 
         install_frame = ttk.LabelFrame(self.settings_content, text="Install Locations", padding=12)
-        install_frame.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        install_frame.grid(row=0, column=0, sticky="ew")
         install_frame.columnconfigure(1, weight=1)
         ttk.Label(install_frame, text="Custom yt-dlp path", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
         yt_dlp_frame = ttk.Frame(install_frame, style="Panel.TFrame")
@@ -884,8 +894,10 @@ class App:
         ttk.Button(ffmpeg_frame, text="Auto-detect", command=lambda: self._autodetect_tool_path("ffmpeg")).grid(row=0, column=2, padx=(8, 0))
         ttk.Button(ffmpeg_frame, text="Clear", command=self._clear_ffmpeg_path).grid(row=0, column=3, padx=(8, 0))
 
+        ttk.Frame(self.settings_content, style="Divider.TFrame", height=2).grid(row=1, column=0, sticky="ew", pady=(8, 8))
+
         options = ttk.LabelFrame(self.settings_content, text="Pipeline Options", padding=12)
-        options.grid(row=1, column=0, sticky="ew", pady=(0, 12))
+        options.grid(row=2, column=0, sticky="ew")
         ttk.Checkbutton(options, text="Allow playlist downloads", variable=self.playlist_var, style="Panel.TCheckbutton").pack(anchor="w")
         ttk.Checkbutton(options, text="Review metadata before sending to Spotify folder", variable=self.review_before_import_var, style="Panel.TCheckbutton").pack(anchor="w")
         ttk.Checkbutton(options, text="Copy cleaned songs into Spotify-ready folder automatically", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").pack(anchor="w")
@@ -893,8 +905,10 @@ class App:
         ttk.Checkbutton(options, text="Open output folder when finished", variable=self.open_folder_var, style="Panel.TCheckbutton").pack(anchor="w")
         ttk.Checkbutton(options, text="Keep temp files created during processing", variable=self.keep_temp_var, style="Panel.TCheckbutton").pack(anchor="w")
 
+        ttk.Frame(self.settings_content, style="Divider.TFrame", height=2).grid(row=3, column=0, sticky="ew", pady=(8, 8))
+
         deps = ttk.LabelFrame(self.settings_content, text="Required Tools", padding=12)
-        deps.grid(row=2, column=0, sticky="ew", pady=(0, 12))
+        deps.grid(row=4, column=0, sticky="ew")
         deps.columnconfigure(0, weight=1)
 
         status_frame = ttk.LabelFrame(deps, text="Status", padding=10)
@@ -949,8 +963,10 @@ class App:
         ttk.Button(deps, text="Refresh dependency check", command=self._refresh_dependency_check, style="Secondary.TButton").grid(row=2, column=0, sticky="w", pady=(10, 0))
         self._refresh_dependency_check()
 
+        ttk.Frame(self.settings_content, style="Divider.TFrame", height=2).grid(row=5, column=0, sticky="ew", pady=(8, 8))
+
         utility_actions = ttk.LabelFrame(self.settings_content, text="Utilities", padding=12)
-        utility_actions.grid(row=3, column=0, sticky="ew")
+        utility_actions.grid(row=6, column=0, sticky="ew")
         for column in range(3):
             utility_actions.columnconfigure(column, weight=1)
         utility_buttons = [
@@ -971,11 +987,13 @@ class App:
                 padx=(0, 8) if column < 2 else 0,
                 pady=(0, 8) if row == 0 else 0,
             )
+        ttk.Frame(self.settings_content, style="Divider.TFrame", height=2).grid(row=7, column=0, sticky="ew", pady=(8, 8))
+
         log_frame = ttk.LabelFrame(self.settings_content, text="Background Log", padding=10)
-        log_frame.grid(row=4, column=0, sticky="nsew", pady=(12, 0))
+        log_frame.grid(row=8, column=0, sticky="nsew")
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
-        self.settings_content.rowconfigure(4, weight=1)
+        self.settings_content.rowconfigure(8, weight=1)
         self.log_text = tk.Text(log_frame, wrap="word", height=16)
         self.log_text.grid(row=0, column=0, sticky="nsew")
         log_scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
@@ -1035,6 +1053,7 @@ class App:
         style.configure("Shell.TFrame", background=colors["panel_soft"])
         style.configure("Card.TFrame", background=colors["panel"])
         style.configure("Panel.TFrame", background=colors["panel"])
+        style.configure("Divider.TFrame", background=colors["panel_soft"] if mode == "dark" else "#b8d4ff")
         style.configure("Toolbar.TFrame", background=colors["panel"])
         style.configure("TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10))
         style.configure("Hero.TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10, "bold"))
