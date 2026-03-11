@@ -777,7 +777,7 @@ class App:
         ttk.Combobox(form, textvariable=self.mp3_quality_var, state="readonly", values=["Good", "Better", "Best"]).grid(row=2, column=1, sticky="w", pady=(0, 8))
 
         quick_options = ttk.LabelFrame(control_stack, text="Quick Options", padding=14)
-        quick_options.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        quick_options.grid(row=2, column=0, sticky="ew", pady=(0, 0))
         ttk.Checkbutton(quick_options, text="Allow playlists", variable=self.playlist_var, style="Panel.TCheckbutton").grid(row=0, column=0, sticky="w")
         ttk.Checkbutton(quick_options, text="Review metadata before import", variable=self.review_before_import_var, style="Panel.TCheckbutton").grid(row=1, column=0, sticky="w", pady=(6, 0))
         ttk.Checkbutton(quick_options, text="Copy to Spotify-ready folder", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").grid(row=2, column=0, sticky="w", pady=(6, 0))
@@ -805,16 +805,17 @@ class App:
         self.activity_empty_label = ttk.Label(
             self.activity_feed,
             text="No activity yet. Start a download and the session feed will appear here.",
-            style="CardSubtle.TLabel",
+            style="ShellSubtle.TLabel",
             wraplength=900,
             justify="left",
         )
         self.activity_empty_label.grid(row=0, column=0, sticky="w", padx=12, pady=12)
 
         queue_frame = ttk.LabelFrame(right_stack, text="In Queue", padding=10)
-        queue_frame.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        queue_frame.grid(row=1, column=0, sticky="ew", pady=(0, 0))
         queue_frame.columnconfigure(0, weight=1)
-        queue_list_shell = ttk.Frame(queue_frame, style="Card.TFrame")
+        queue_frame.rowconfigure(0, weight=1)
+        queue_list_shell = ttk.Frame(queue_frame, style="Shell.TFrame")
         queue_list_shell.grid(row=0, column=0, sticky="ew")
         queue_list_shell.columnconfigure(0, weight=1)
         self.queue_canvas = tk.Canvas(queue_list_shell, highlightthickness=0, borderwidth=0, height=132)
@@ -822,13 +823,11 @@ class App:
         self.queue_canvas.configure(yscrollcommand=queue_ybar.set)
         self.queue_canvas.grid(row=0, column=0, sticky="ew")
         queue_ybar.grid(row=0, column=1, sticky="ns")
-        self.queue_feed = ttk.Frame(self.queue_canvas, style="Card.TFrame")
+        self.queue_feed = ttk.Frame(self.queue_canvas, style="Shell.TFrame")
         self.queue_feed.columnconfigure(0, weight=1)
         self.queue_canvas_window = self.queue_canvas.create_window((0, 0), window=self.queue_feed, anchor="nw")
         self.queue_feed.bind("<Configure>", self._sync_queue_canvas)
         self.queue_canvas.bind("<Configure>", self._resize_queue_canvas)
-        self.queue_empty_label = ttk.Label(queue_frame, text="Nothing queued.", style="CardSubtle.TLabel")
-        self.queue_empty_label.grid(row=1, column=0, sticky="w", pady=(8, 0))
 
         ttk.Label(home, text="Point Spotify Desktop at the Spotify-ready folder through Settings -> Local Files -> Add a source.", wraplength=960, style="Subtle.TLabel").grid(row=2, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self.main_notebook.select(home)
@@ -1045,6 +1044,7 @@ class App:
         style.configure("PanelSubtle.TLabel", background=colors["panel"], foreground=colors["muted"], font=("Segoe UI", 10))
         style.configure("CardTitle.TLabel", background=colors["panel"], foreground=colors["fg"], font=("Segoe UI", 10, "bold"))
         style.configure("CardSubtle.TLabel", background=colors["panel"], foreground=colors["muted"], font=("Segoe UI", 10))
+        style.configure("ShellSubtle.TLabel", background=colors["panel_soft"], foreground=colors["muted"], font=("Segoe UI", 10))
         style.configure("CardBadge.TLabel", background=colors["accent_soft"], foreground=colors["accent"], padding=(10, 5), font=("Segoe UI", 9, "bold"))
         style.configure("CardChip.TLabel", background=colors["panel_alt"], foreground=colors["fg"], padding=(10, 6))
         style.configure("Badge.TLabel", background=colors["accent_soft"], foreground=colors["accent"], padding=(10, 5), font=("Segoe UI", 9, "bold"))
@@ -1172,7 +1172,7 @@ class App:
         if hasattr(self, "activity_canvas") and self.activity_canvas:
             self.activity_canvas.configure(background=colors["panel_soft"])
         if hasattr(self, "queue_canvas") and self.queue_canvas:
-            self.queue_canvas.configure(background=colors["panel"])
+            self.queue_canvas.configure(background=colors["panel_soft"])
         if hasattr(self, "settings_canvas") and self.settings_canvas:
             self.settings_canvas.configure(background=colors["panel_soft"])
         if hasattr(self, "trim_canvas") and self.trim_canvas:
@@ -2173,9 +2173,19 @@ class App:
             return
         for child in self.queue_feed.winfo_children():
             child.destroy()
+        if not self.download_queue:
+            ttk.Label(
+                self.queue_feed,
+                text="Nothing queued.",
+                style="ShellSubtle.TLabel",
+                wraplength=900,
+                justify="left",
+            ).grid(row=0, column=0, sticky="w", padx=12, pady=12)
+            self._sync_queue_canvas()
+            return
         for index, item in enumerate(self.download_queue):
-            row = ttk.Frame(self.queue_feed, style="Card.TFrame", padding=8)
-            row.grid(row=index, column=0, sticky="ew", pady=(0, 6))
+            row = ttk.Frame(self.queue_feed, style="Card.TFrame", padding=12)
+            row.grid(row=index, column=0, sticky="ew", padx=4, pady=(0, 10))
             row.columnconfigure(0, weight=1)
             label = item.get("url", "")
             if len(label) > 88:
@@ -2188,8 +2198,6 @@ class App:
                 style="Danger.TButton",
                 width=3,
             ).grid(row=0, column=1, sticky="e", padx=(10, 0))
-        if hasattr(self, "queue_empty_label"):
-            self.queue_empty_label.configure(text="Nothing queued." if not self.download_queue else f"{len(self.download_queue)} item(s) queued.")
         self._sync_queue_canvas()
 
     def _queue_download(self, url: str, import_folder: str, spotify_folder: str):
