@@ -820,9 +820,8 @@ class App:
         workspace_toolbar = ttk.Frame(workspace_actions, style="Toolbar.TFrame")
         workspace_toolbar.pack(fill="x")
         ttk.Button(workspace_toolbar, text="Metadata", command=self._open_metadata_editor, style="Workspace.TButton").pack(side="left")
-        ttk.Button(workspace_toolbar, text="Recent Files", command=self._open_output_file_manager, style="Workspace.TButton").pack(side="left", padx=(8, 0))
         ttk.Button(workspace_toolbar, text="Trim", command=self._open_trim_from_selection, style="Workspace.TButton").pack(side="left", padx=(8, 0))
-        ttk.Button(workspace_toolbar, text="Reload", command=self._reload_recent_files_action, style="Secondary.TButton").pack(side="left", padx=(12, 0))
+        ttk.Button(workspace_toolbar, text="Refresh", command=self._refresh_workspace_files, style="Secondary.TButton").pack(side="left", padx=(12, 0))
 
         self.workspace_stack = ttk.Frame(self.workspace, style="Shell.TFrame", padding=8)
         self.workspace_stack.grid(row=2, column=0, sticky="nsew")
@@ -838,7 +837,7 @@ class App:
         self._build_metadata_panel()
         self._build_files_panel()
         self._build_trim_panel()
-        self._show_workspace_panel("metadata", focus_tab=False)
+        self._show_workspace_panel("files", focus_tab=False)
 
         install_frame = ttk.LabelFrame(self.settings_content, text="Install Locations", padding=12)
         install_frame.grid(row=0, column=0, sticky="ew", pady=(0, 12))
@@ -1144,17 +1143,17 @@ class App:
         self.metadata_panel.columnconfigure(1, weight=1)
         self.metadata_panel.rowconfigure(1, weight=1)
         ttk.Label(self.metadata_panel, text="Metadata Editor", font=("Segoe UI", 12, "bold"), style="CardTitle.TLabel").grid(row=0, column=0, sticky="w", pady=(0, 4))
-        ttk.Label(self.metadata_panel, text="Select a track, adjust the fields on the right, then apply or save the full set.", style="CardSubtle.TLabel").grid(row=0, column=1, sticky="e", pady=(0, 4))
+        ttk.Label(self.metadata_panel, text="Edit the core track fields only. Full debug details stay in Settings and Recent Files.", style="CardSubtle.TLabel").grid(row=0, column=1, sticky="e", pady=(0, 4))
         tree_frame = ttk.Frame(self.metadata_panel)
         tree_frame.grid(row=1, column=0, sticky="nsew")
         tree_frame.columnconfigure(0, weight=1)
         tree_frame.rowconfigure(0, weight=1)
-        columns = ("filename", "title", "artist", "album", "track", "playlist", "import_type")
+        columns = ("title", "artist")
         self.metadata_tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
-        widths = {"filename": 220, "title": 180, "artist": 140, "album": 140, "track": 56, "playlist": 180, "import_type": 88}
-        for col, label in [("filename", "File"), ("title", "Title"), ("artist", "Artist"), ("album", "Album"), ("track", "Track"), ("playlist", "Playlist"), ("import_type", "Type")]:
+        widths = {"title": 220, "artist": 160}
+        for col, label in [("title", "Title"), ("artist", "Artist")]:
             self.metadata_tree.heading(col, text=label)
-            self.metadata_tree.column(col, width=widths[col], minwidth=widths[col], stretch=(col in {"filename", "title", "playlist"}), anchor="w")
+            self.metadata_tree.column(col, width=widths[col], minwidth=widths[col], stretch=True, anchor="w")
         ybar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.metadata_tree.yview)
         xbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.metadata_tree.xview)
         self.metadata_tree.configure(yscrollcommand=ybar.set, xscrollcommand=xbar.set)
@@ -1175,29 +1174,21 @@ class App:
         inspector.columnconfigure(1, weight=1)
         self.metadata_thumbnail_label = ttk.Label(inspector, text="No artwork", anchor="center")
         self.metadata_thumbnail_label.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
-        ttk.Label(inspector, text="Filename").grid(row=1, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_filename_var).grid(row=1, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Title").grid(row=2, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_title_var).grid(row=2, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Artist").grid(row=3, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_artist_var).grid(row=3, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Album").grid(row=4, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_album_var).grid(row=4, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Track #").grid(row=5, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_track_var).grid(row=5, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Playlist").grid(row=6, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_playlist_var).grid(row=6, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Type").grid(row=7, column=0, sticky="w", pady=(0, 6))
-        ttk.Combobox(inspector, textvariable=self.meta_import_type_var, state="readonly", values=["playlist", "single"]).grid(row=7, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Artwork").grid(row=8, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_artwork_path_var, state="readonly").grid(row=8, column=1, sticky="ew", pady=(0, 6))
+        ttk.Label(inspector, text="Title").grid(row=1, column=0, sticky="w", pady=(0, 6))
+        ttk.Entry(inspector, textvariable=self.meta_title_var).grid(row=1, column=1, sticky="ew", pady=(0, 6))
+        ttk.Label(inspector, text="Artist").grid(row=2, column=0, sticky="w", pady=(0, 6))
+        ttk.Entry(inspector, textvariable=self.meta_artist_var).grid(row=2, column=1, sticky="ew", pady=(0, 6))
+        ttk.Label(inspector, text="Album").grid(row=3, column=0, sticky="w", pady=(0, 6))
+        ttk.Entry(inspector, textvariable=self.meta_album_var).grid(row=3, column=1, sticky="ew", pady=(0, 6))
+        ttk.Label(inspector, text="Track #").grid(row=4, column=0, sticky="w", pady=(0, 6))
+        ttk.Entry(inspector, textvariable=self.meta_track_var).grid(row=4, column=1, sticky="ew", pady=(0, 6))
         meta_artwork_actions = ttk.Frame(inspector, style="Card.TFrame")
-        meta_artwork_actions.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        meta_artwork_actions.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(8, 6))
         ttk.Button(meta_artwork_actions, text="Use YouTube Thumbnail", command=self._use_metadata_thumbnail_artwork, style="Nav.TButton").pack(side="left")
         ttk.Button(meta_artwork_actions, text="Choose Artwork", command=self._choose_metadata_artwork, style="Nav.TButton").pack(side="left", padx=(8, 0))
         ttk.Button(meta_artwork_actions, text="Clear Artwork", command=self._clear_metadata_artwork, style="Nav.TButton").pack(side="left", padx=(8, 0))
-        ttk.Label(inspector, text="Source file").grid(row=10, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_source_path_var, state="readonly").grid(row=10, column=1, sticky="ew", pady=(0, 6))
+        ttk.Label(inspector, text="Source file").grid(row=6, column=0, sticky="w", pady=(0, 6))
+        ttk.Entry(inspector, textvariable=self.meta_source_path_var, state="readonly").grid(row=6, column=1, sticky="ew", pady=(0, 6))
 
     def _build_files_panel(self):
         self.files_panel.columnconfigure(0, weight=1)
@@ -1209,12 +1200,13 @@ class App:
         tree_frame.grid(row=1, column=0, sticky="nsew")
         tree_frame.columnconfigure(0, weight=1)
         tree_frame.rowconfigure(0, weight=1)
-        columns = ("title", "artist", "album", "playlist", "status", "spotify_path", "source_path")
+        columns = ("title", "artist", "album", "status", "source_path")
         self.files_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", selectmode="browse")
-        widths = {"title": 180, "artist": 130, "album": 130, "playlist": 150, "status": 84, "spotify_path": 260, "source_path": 260}
-        for col, label in [("title", "Title"), ("artist", "Artist"), ("album", "Album"), ("playlist", "Playlist"), ("status", "Status"), ("spotify_path", "Spotify File"), ("source_path", "Source File")]:
+        widths = {"title": 180, "artist": 130, "album": 130, "status": 84, "source_path": 320}
+        for col, label in [("title", "Title"), ("artist", "Artist"), ("album", "Album"), ("status", "Status"), ("source_path", "Source File")]:
             self.files_tree.heading(col, text=label)
-            self.files_tree.column(col, width=widths[col], minwidth=widths[col], stretch=(col in {"title", "spotify_path", "source_path"}), anchor="w")
+            anchor = "w" if col == "source_path" else "center"
+            self.files_tree.column(col, width=widths[col], minwidth=widths[col], stretch=(col in {"title", "source_path"}), anchor=anchor)
         ybar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.files_tree.yview)
         xbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.files_tree.xview)
         self.files_tree.configure(yscrollcommand=ybar.set, xscrollcommand=xbar.set)
@@ -1222,6 +1214,7 @@ class App:
         ybar.grid(row=0, column=1, sticky="ns")
         xbar.grid(row=1, column=0, sticky="ew")
         self.files_tree.bind("<<TreeviewSelect>>", self._load_files_selection)
+        self.files_tree.bind("<ButtonRelease-1>", self._open_source_from_files_tree)
         actions = ttk.Frame(self.files_panel, style="Toolbar.TFrame")
         actions.grid(row=2, column=0, sticky="ew", pady=(10, 0))
         ttk.Button(actions, text="Trim Selected", command=self._open_trim_from_selection, style="Primary.TButton").pack(side="left")
@@ -1845,6 +1838,51 @@ class App:
         self.activity_images.pop(entry["id"], None)
         return None
 
+    def _activity_target_path(self, entry: dict) -> str:
+        return entry.get("spotify_path", "") or entry.get("source_path", "")
+
+    def _format_duration_text(self, path_str: str) -> str:
+        if not path_str:
+            return ""
+        path = Path(path_str)
+        if not path.exists():
+            return ""
+        try:
+            audio = MP3(str(path))
+            total_seconds = int(round(audio.info.length))
+        except Exception:
+            return ""
+        minutes, seconds = divmod(max(total_seconds, 0), 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours:
+            return f"{hours}:{minutes:02d}:{seconds:02d}"
+        return f"{minutes}:{seconds:02d}"
+
+    def _format_size_text(self, path_str: str) -> str:
+        if not path_str:
+            return ""
+        path = Path(path_str)
+        if not path.exists():
+            return ""
+        try:
+            size = float(path.stat().st_size)
+        except Exception:
+            return ""
+        units = ["B", "KB", "MB", "GB"]
+        for unit in units:
+            if size < 1024 or unit == units[-1]:
+                return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
+            size /= 1024
+        return ""
+
+    def _short_location_label(self, path_str: str) -> str:
+        if not path_str:
+            return "Open"
+        path = Path(path_str)
+        parts = path.parts
+        short_parts = parts[-3:] if len(parts) >= 3 else parts
+        return " > ".join(short_parts[:-1]) or path.parent.name or "Open"
+
     def _add_activity_entry(self, **entry):
         activity = {
             "id": self._next_activity_id(),
@@ -1962,9 +2000,17 @@ class App:
             ttk.Label(card, text=title_text, style="CardTitle.TLabel").grid(row=0, column=1, sticky="w")
             if artist_text:
                 ttk.Label(card, text=artist_text, style="CardSubtle.TLabel").grid(row=1, column=1, sticky="w", pady=(2, 0))
+            target_path = self._activity_target_path(entry)
+            facts = [part for part in (
+                self._format_duration_text(target_path),
+                self._format_size_text(target_path),
+                entry.get("status", "") if not target_path else "",
+            ) if part]
+            if facts:
+                ttk.Label(card, text=" | ".join(facts), style="CardSubtle.TLabel").grid(row=2, column=1, sticky="w", pady=(6, 0))
             progress_value = entry.get("progress")
             progress_row = ttk.Frame(card, style="Card.TFrame")
-            progress_row.grid(row=2, column=1, sticky="ew", pady=(8, 0))
+            progress_row.grid(row=3, column=1, sticky="ew", pady=(8, 0))
             progress_row.columnconfigure(0, weight=1)
             progress_bar = ttk.Progressbar(progress_row, mode="determinate", maximum=100)
             progress_bar.grid(row=0, column=0, sticky="ew")
@@ -1975,8 +2021,15 @@ class App:
                 progress_bar.configure(value=max(0, min(100, float(progress_value))))
                 progress_label = f"{int(round(float(progress_value)))}%"
             ttk.Label(progress_row, text=progress_label, style="CardSubtle.TLabel").grid(row=0, column=1, sticky="e", padx=(10, 0))
-            details_parts = [part for part in (entry.get("status", ""), entry.get("details", ""), entry.get("subtitle", "")) if part]
-            ttk.Label(card, text=" | ".join(details_parts), style="CardSubtle.TLabel", wraplength=980, justify="left").grid(row=3, column=1, sticky="ew", pady=(8, 0))
+            location_row = ttk.Frame(card, style="Card.TFrame")
+            location_row.grid(row=4, column=1, sticky="w", pady=(8, 0))
+            ttk.Button(
+                location_row,
+                text=self._short_location_label(target_path),
+                command=lambda item_path=target_path: self._open_folder(str(Path(item_path).parent) if item_path else ""),
+                style="Nav.TButton",
+                state="normal" if target_path else "disabled",
+            ).pack(side="left")
             action_text = "Delete"
             button_state = "normal" if entry.get("can_delete") and (entry.get("source_path") or entry.get("spotify_path")) else "disabled"
             ttk.Button(
@@ -1985,7 +2038,7 @@ class App:
                 command=lambda item_id=entry["id"]: self._delete_activity_entry(item_id),
                 style="Danger.TButton",
                 state=button_state,
-            ).grid(row=0, column=2, rowspan=4, sticky="ne", padx=(12, 0))
+            ).grid(row=0, column=2, rowspan=5, sticky="ne", padx=(12, 0))
             self.activity_card_widgets[entry["id"]] = card
         self._sync_activity_canvas()
 
@@ -2412,6 +2465,12 @@ class App:
             return
         messagebox.showinfo(APP_TITLE, "No recent files were found. Point the app at the correct download and Spotify folders in Settings, then try again.")
 
+    def _refresh_workspace_files(self):
+        if self._reload_recent_state():
+            self._populate_workspace_views()
+        self._set_workspace_status("Recent Files", f"Browsing {len(self.workspace_rows)} recent file(s) inside the app")
+        self._show_workspace_panel("files")
+
     def _populate_workspace_views(self):
         self._populate_metadata_tree()
         self._populate_files_tree()
@@ -2420,13 +2479,8 @@ class App:
         self.metadata_tree.delete(*self.metadata_tree.get_children())
         for index, row in enumerate(self.last_metadata_rows):
             self.metadata_tree.insert("", "end", iid=str(index), values=(
-                row.get("filename", ""),
                 row.get("title", ""),
                 row.get("artist", ""),
-                row.get("album", ""),
-                row.get("track", ""),
-                row.get("playlist", ""),
-                row.get("import_type", "playlist"),
             ))
         if self.last_metadata_rows:
             if self.metadata_selected_index is None or self.metadata_selected_index >= len(self.last_metadata_rows):
@@ -2446,16 +2500,14 @@ class App:
             source_path = row.get("source_path", "")
             status = []
             if spotify_path and Path(spotify_path).exists():
-                status.append("spotify")
+                status.append("Spotify")
             if source_path and Path(source_path).exists():
-                status.append("download")
+                status.append("Download")
             self.files_tree.insert("", "end", iid=str(index), values=(
-                row.get("title", ""),
-                row.get("artist", ""),
-                row.get("album", ""),
-                row.get("playlist", ""),
-                " + ".join(status) if status else "missing",
-                spotify_path,
+                clean_filename(row.get("title", ""), "Unknown Title"),
+                clean_filename(row.get("artist", ""), "Unknown Artist"),
+                clean_filename(row.get("album", ""), "Singles"),
+                " + ".join(status) if status else "Missing",
                 source_path,
             ))
         if self.workspace_rows:
@@ -2466,6 +2518,26 @@ class App:
         else:
             self.files_selected_index = None
             self._clear_files_form()
+
+    def _open_source_from_files_tree(self, event):
+        row_id = self.files_tree.identify_row(event.y)
+        column_id = self.files_tree.identify_column(event.x)
+        if not row_id or column_id != "#5":
+            return
+        row = self.workspace_rows[int(row_id)]
+        source_path = row.get("source_path", "")
+        if not source_path:
+            return
+        path = Path(source_path)
+        if not path.exists():
+            return
+        try:
+            if sys.platform.startswith("win"):
+                subprocess.Popen(["explorer", "/select,", str(path)])
+            else:
+                self._open_folder(str(path.parent))
+        except Exception as exc:
+            self._log(f"Could not open source file location: {exc}")
 
     def _clear_files_form(self):
         for var in (
@@ -2547,24 +2619,9 @@ class App:
             return
         x, y, width, height = self.metadata_tree.bbox(row_id, column_id)
         col_index = int(column_id.replace("#", "")) - 1
-        keys = ["filename", "title", "artist", "album", "track", "playlist", "import_type"]
+        keys = ["title", "artist"]
         key = keys[col_index]
         current_row = dict(self.last_metadata_rows[int(row_id)])
-        if key == "filename":
-            return
-        if key == "import_type":
-            combo = ttk.Combobox(self.metadata_tree, values=["playlist", "single"], state="readonly")
-            combo.place(x=x, y=y, width=width, height=height)
-            combo.set(current_row.get(key, "playlist"))
-            combo.focus()
-            def save_combo(_event=None):
-                current_row[key] = combo.get().strip() or "playlist"
-                self.last_metadata_rows[int(row_id)] = current_row
-                self._populate_metadata_tree()
-                combo.destroy()
-            combo.bind("<<ComboboxSelected>>", save_combo)
-            combo.bind("<FocusOut>", save_combo)
-            return
         entry = ttk.Entry(self.metadata_tree)
         entry.place(x=x, y=y, width=width, height=height)
         entry.insert(0, self.metadata_tree.item(row_id, "values")[col_index])
