@@ -779,16 +779,16 @@ class App:
         install_frame = ttk.LabelFrame(settings, text="Install Locations", padding=12)
         install_frame.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         install_frame.columnconfigure(1, weight=1)
-        ttk.Label(install_frame, text="Custom yt-dlp path").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
-        yt_dlp_frame = ttk.Frame(install_frame)
+        ttk.Label(install_frame, text="Custom yt-dlp path", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
+        yt_dlp_frame = ttk.Frame(install_frame, style="Panel.TFrame")
         yt_dlp_frame.grid(row=0, column=1, sticky="ew", pady=(0, 8))
         yt_dlp_frame.columnconfigure(0, weight=1)
         ttk.Entry(yt_dlp_frame, textvariable=self.yt_dlp_path_var).grid(row=0, column=0, sticky="ew")
         ttk.Button(yt_dlp_frame, text="Browse", command=self._choose_yt_dlp_path).grid(row=0, column=1, padx=(8, 0))
         ttk.Button(yt_dlp_frame, text="Auto-detect", command=lambda: self._autodetect_tool_path("yt-dlp")).grid(row=0, column=2, padx=(8, 0))
         ttk.Button(yt_dlp_frame, text="Clear", command=self._clear_yt_dlp_path).grid(row=0, column=3, padx=(8, 0))
-        ttk.Label(install_frame, text="Custom ffmpeg path").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
-        ffmpeg_frame = ttk.Frame(install_frame)
+        ttk.Label(install_frame, text="Custom ffmpeg path", style="Panel.TLabel").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
+        ffmpeg_frame = ttk.Frame(install_frame, style="Panel.TFrame")
         ffmpeg_frame.grid(row=1, column=1, sticky="ew", pady=(0, 8))
         ffmpeg_frame.columnconfigure(0, weight=1)
         ttk.Entry(ffmpeg_frame, textvariable=self.ffmpeg_path_var).grid(row=0, column=0, sticky="ew")
@@ -798,12 +798,12 @@ class App:
 
         options = ttk.LabelFrame(settings, text="Pipeline Options", padding=12)
         options.grid(row=1, column=0, sticky="ew", pady=(0, 12))
-        ttk.Checkbutton(options, text="Allow playlist downloads", variable=self.playlist_var).pack(anchor="w")
-        ttk.Checkbutton(options, text="Review metadata before sending to Spotify folder", variable=self.review_before_import_var).pack(anchor="w")
-        ttk.Checkbutton(options, text="Copy cleaned songs into Spotify-ready folder automatically", variable=self.copy_to_spotify_folder_var).pack(anchor="w")
-        ttk.Checkbutton(options, text="Write corrected embedded MP3 tags with mutagen", variable=self.write_tags_var).pack(anchor="w")
-        ttk.Checkbutton(options, text="Open output folder when finished", variable=self.open_folder_var).pack(anchor="w")
-        ttk.Checkbutton(options, text="Keep temp files created during processing", variable=self.keep_temp_var).pack(anchor="w")
+        ttk.Checkbutton(options, text="Allow playlist downloads", variable=self.playlist_var, style="Panel.TCheckbutton").pack(anchor="w")
+        ttk.Checkbutton(options, text="Review metadata before sending to Spotify folder", variable=self.review_before_import_var, style="Panel.TCheckbutton").pack(anchor="w")
+        ttk.Checkbutton(options, text="Copy cleaned songs into Spotify-ready folder automatically", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").pack(anchor="w")
+        ttk.Checkbutton(options, text="Write corrected embedded MP3 tags with mutagen", variable=self.write_tags_var, style="Panel.TCheckbutton").pack(anchor="w")
+        ttk.Checkbutton(options, text="Open output folder when finished", variable=self.open_folder_var, style="Panel.TCheckbutton").pack(anchor="w")
+        ttk.Checkbutton(options, text="Keep temp files created during processing", variable=self.keep_temp_var, style="Panel.TCheckbutton").pack(anchor="w")
 
         deps = ttk.LabelFrame(settings, text="Required Tools", padding=12)
         deps.grid(row=2, column=0, sticky="ew", pady=(0, 12))
@@ -815,9 +815,9 @@ class App:
         self.dependency_link_labels = []
         dependency_rows = (("yt-dlp", "yt-dlp"), ("ffmpeg", "ffmpeg"), ("mutagen", "mutagen"), ("pyinstaller", "pyinstaller"))
         for index, (service_name, key) in enumerate(dependency_rows):
-            row = ttk.Frame(status_frame)
+            row = ttk.Frame(status_frame, style="Panel.TFrame")
             row.grid(row=0, column=index, sticky="w", padx=(0, 16) if index < len(dependency_rows) - 1 else 0)
-            ttk.Label(row, text=f"{service_name}:").pack(side="left")
+            ttk.Label(row, text=f"{service_name}:", style="Panel.TLabel").pack(side="left")
             status_label = tk.Label(row, text="Checking...", anchor="w", font=("Segoe UI", 10, "bold"))
             status_label.pack(side="left", padx=(8, 0))
             self.tool_status_rows[key] = status_label
@@ -830,16 +830,17 @@ class App:
             text="Required: yt-dlp and ffmpeg. Optional: mutagen for tag writing and pyinstaller for packaging. You can install missing tools or set custom paths above.",
             wraplength=760,
             justify="left",
+            style="Panel.TLabel",
         ).grid(row=0, column=0, sticky="w")
         ttk.Label(
             instructions_frame,
             text="Quick install: winget install yt-dlp.yt-dlp, winget install Gyan.FFmpeg, python -m pip install mutagen pyinstaller",
             wraplength=760,
             justify="left",
-            style="Subtle.TLabel",
+            style="PanelSubtle.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(6, 0))
 
-        link_row = ttk.Frame(instructions_frame)
+        link_row = ttk.Frame(instructions_frame, style="Panel.TFrame")
         link_row.grid(row=2, column=0, sticky="ew", pady=(8, 0))
         for column in range(5):
             link_row.columnconfigure(column, weight=1)
@@ -897,20 +898,47 @@ class App:
         except Exception:
             pass
         if mode == "dark":
-            colors = {"bg": "#11151b", "panel": "#1b2129", "panel_alt": "#252d37", "panel_soft": "#303948", "fg": "#f3f5f8", "muted": "#9ba7b4", "accent": "#6ec1ff", "accent_soft": "#1f405a", "field": "#141920", "danger": "#d56a6a", "border": "#394453"}
+            colors = {
+                "bg": "#1a1530",
+                "panel": "#211a3d",
+                "panel_alt": "#30255a",
+                "panel_soft": "#261f47",
+                "fg": "#f6f7ff",
+                "muted": "#c5b8e8",
+                "accent": "#b884ff",
+                "accent_soft": "#3a2d69",
+                "field": "#2a2150",
+                "danger": "#ff6f96",
+                "border": "#4c3b8e",
+            }
         else:
-            colors = {"bg": "#edf1f5", "panel": "#ffffff", "panel_alt": "#e6edf5", "panel_soft": "#f6f8fb", "fg": "#19202a", "muted": "#5f6c7b", "accent": "#0f6cbd", "accent_soft": "#d8e8f8", "field": "#ffffff", "danger": "#c14646", "border": "#ccd6e0"}
+            colors = {
+                "bg": "#eaf3ff",
+                "panel": "#f4f8ff",
+                "panel_alt": "#d7e7ff",
+                "panel_soft": "#edf5ff",
+                "fg": "#163052",
+                "muted": "#5f79a0",
+                "accent": "#2f7dff",
+                "accent_soft": "#cfe0ff",
+                "field": "#ffffff",
+                "danger": "#d84b72",
+                "border": "#aac8ff",
+            }
         self.current_theme_colors = colors
-        self.root.configure(bg=colors["bg"])
-        style.configure(".", background=colors["bg"], foreground=colors["fg"])
-        style.configure("TFrame", background=colors["bg"])
+        self.root.configure(bg=colors["panel_soft"])
+        style.configure(".", background=colors["panel"], foreground=colors["fg"])
+        style.configure("TFrame", background=colors["panel"])
         style.configure("Shell.TFrame", background=colors["panel_soft"])
         style.configure("Card.TFrame", background=colors["panel"])
+        style.configure("Panel.TFrame", background=colors["panel"])
         style.configure("Toolbar.TFrame", background=colors["panel"])
-        style.configure("TLabel", background=colors["bg"], foreground=colors["fg"])
-        style.configure("Hero.TLabel", background=colors["bg"], foreground=colors["fg"])
-        style.configure("Section.TLabel", background=colors["bg"], foreground=colors["fg"])
-        style.configure("Subtle.TLabel", background=colors["bg"], foreground=colors["muted"])
+        style.configure("TLabel", background=colors["panel"], foreground=colors["fg"])
+        style.configure("Hero.TLabel", background=colors["panel"], foreground=colors["fg"])
+        style.configure("Section.TLabel", background=colors["panel"], foreground=colors["fg"])
+        style.configure("Subtle.TLabel", background=colors["panel"], foreground=colors["muted"])
+        style.configure("Panel.TLabel", background=colors["panel"], foreground=colors["fg"])
+        style.configure("PanelSubtle.TLabel", background=colors["panel"], foreground=colors["muted"])
         style.configure("CardTitle.TLabel", background=colors["panel"], foreground=colors["fg"])
         style.configure("CardSubtle.TLabel", background=colors["panel"], foreground=colors["muted"])
         style.configure("CardBadge.TLabel", background=colors["accent_soft"], foreground=colors["accent"], padding=(10, 5), font=("Segoe UI", 9, "bold"))
@@ -935,7 +963,10 @@ class App:
         style.map("Danger.TButton", background=[("active", colors["fg"]), ("disabled", colors["panel_alt"])], foreground=[("active", colors["danger"]), ("disabled", colors["muted"])])
         style.configure("Theme.TButton", background=colors["panel_alt"], foreground=colors["muted"], padding=(10, 6), borderwidth=0, font=("Segoe UI", 9, "bold"))
         style.map("Theme.TButton", background=[("active", colors["panel"])], foreground=[("active", colors["fg"])])
-        style.configure("TCheckbutton", background=colors["bg"], foreground=colors["fg"])
+        style.configure("TCheckbutton", background=colors["panel"], foreground=colors["fg"])
+        style.map("TCheckbutton", background=[("active", colors["panel"])], foreground=[("disabled", colors["muted"]), ("active", colors["fg"])])
+        style.configure("Panel.TCheckbutton", background=colors["panel"], foreground=colors["fg"])
+        style.map("Panel.TCheckbutton", background=[("active", colors["panel"])], foreground=[("disabled", colors["muted"]), ("active", colors["fg"])])
         style.configure("TNotebook", background=colors["panel_soft"], borderwidth=0, tabmargins=(6, 6, 6, 0))
         style.configure("TNotebook.Tab", background=colors["panel_alt"], foreground=colors["muted"], padding=(20, 11), borderwidth=0, font=("Segoe UI", 10, "bold"))
         style.map(
@@ -945,8 +976,37 @@ class App:
             padding=[("selected", (24, 12)), ("!selected", (20, 11))],
             expand=[("selected", [1, 1, 1, 0])],
         )
-        style.configure("TEntry", fieldbackground=colors["field"], foreground=colors["fg"])
-        style.configure("TCombobox", fieldbackground=colors["field"], foreground=colors["fg"])
+        style.configure(
+            "TEntry",
+            fieldbackground=colors["field"],
+            foreground=colors["fg"],
+            insertcolor=colors["fg"],
+            bordercolor=colors["border"],
+            lightcolor=colors["border"],
+            darkcolor=colors["border"],
+        )
+        style.configure(
+            "TCombobox",
+            fieldbackground=colors["field"],
+            background=colors["panel_alt"],
+            foreground=colors["fg"],
+            arrowcolor=colors["fg"],
+            bordercolor=colors["border"],
+            lightcolor=colors["border"],
+            darkcolor=colors["border"],
+            selectbackground=colors["accent_soft"],
+            selectforeground=colors["fg"],
+            insertcolor=colors["fg"],
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", colors["field"]), ("disabled", colors["panel_alt"])],
+            background=[("readonly", colors["panel_alt"]), ("active", colors["panel_alt"])],
+            foreground=[("readonly", colors["fg"]), ("disabled", colors["muted"])],
+            arrowcolor=[("readonly", colors["fg"]), ("active", colors["accent"]), ("disabled", colors["muted"])],
+            selectbackground=[("readonly", colors["accent_soft"])],
+            selectforeground=[("readonly", colors["fg"])],
+        )
         style.configure("Treeview", background=colors["panel"], fieldbackground=colors["panel"], foreground=colors["fg"], rowheight=32, borderwidth=0)
         style.configure("Treeview.Heading", background=colors["panel_alt"], foreground=colors["fg"], padding=(8, 8), borderwidth=0)
         style.map("Treeview", background=[("selected", colors["accent_soft"])], foreground=[("selected", colors["fg"])])
