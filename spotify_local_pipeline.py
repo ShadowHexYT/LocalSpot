@@ -30,6 +30,8 @@ SETTINGS_FILE = Path.home() / ".spotify_local_pipeline_settings.json"
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".flac", ".wav", ".ogg"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 INVALID_FILENAME_CHARS = r'[<>:"/\\|?*]+'
+QUALITY_LABEL_TO_BITRATE = {"Good": "192", "Better": "256", "Best": "320"}
+BITRATE_TO_QUALITY_LABEL = {value: key for key, value in QUALITY_LABEL_TO_BITRATE.items()}
 
 
 def clean_filename(text: str, fallback: str = "Unknown") -> str:
@@ -579,7 +581,8 @@ class App:
         self.spotify_folder_var = tk.StringVar(value=saved.get("spotify_folder", DEFAULT_SPOTIFY_FOLDER))
         self.yt_dlp_path_var = tk.StringVar(value=saved.get("yt_dlp_path", ""))
         self.ffmpeg_path_var = tk.StringVar(value=saved.get("ffmpeg_path", ""))
-        self.mp3_quality_var = tk.StringVar(value=saved.get("mp3_quality", "320"))
+        saved_quality = saved.get("mp3_quality", "320")
+        self.mp3_quality_var = tk.StringVar(value=BITRATE_TO_QUALITY_LABEL.get(saved_quality, saved_quality if saved_quality in QUALITY_LABEL_TO_BITRATE else "Best"))
         self.preview_volume_var = tk.IntVar(value=int(saved.get("preview_volume", 100)))
         self.theme_mode_var = tk.StringVar(value=saved.get("theme_mode", "light"))
         self.playlist_var = tk.BooleanVar(value=saved.get("playlist_downloads", True))
@@ -787,7 +790,7 @@ class App:
         ttk.Entry(spotify_frame, textvariable=self.spotify_folder_var).grid(row=0, column=0, sticky="ew")
         ttk.Button(spotify_frame, text="Browse", command=self._choose_spotify_folder).grid(row=0, column=1, padx=(8, 0))
         ttk.Label(form, text="MP3 quality", style="Panel.TLabel").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
-        ttk.Combobox(form, textvariable=self.mp3_quality_var, state="readonly", values=["320", "256", "192", "128"]).grid(row=2, column=1, sticky="w", pady=(0, 8))
+        ttk.Combobox(form, textvariable=self.mp3_quality_var, state="readonly", values=["Good", "Better", "Best"]).grid(row=2, column=1, sticky="w", pady=(0, 8))
 
         quick_options = ttk.LabelFrame(control_stack, text="Quick Options", padding=14)
         quick_options.grid(row=3, column=0, sticky="ew", pady=(10, 0))
@@ -1445,6 +1448,10 @@ class App:
         normalized = normalized.rstrip("/")
         return normalized
 
+    def _selected_bitrate(self) -> str:
+        value = self.mp3_quality_var.get().strip()
+        return QUALITY_LABEL_TO_BITRATE.get(value, value or "320")
+
     def _confirm_duplicate_download(self, url: str) -> bool:
         dialog = tk.Toplevel(self.root)
         dialog.title("Download Again?")
@@ -1556,7 +1563,7 @@ class App:
             "spotify_folder": self.spotify_folder_var.get().strip(),
             "yt_dlp_path": self.yt_dlp_path_var.get().strip(),
             "ffmpeg_path": self.ffmpeg_path_var.get().strip(),
-            "mp3_quality": self.mp3_quality_var.get().strip(),
+            "mp3_quality": self._selected_bitrate(),
             "preview_volume": int(self.preview_volume_var.get()),
             "theme_mode": self.theme_mode_var.get().strip(),
             "playlist_downloads": self.playlist_var.get(),
@@ -2353,7 +2360,7 @@ class App:
             "--ignore-errors",
             "--extract-audio",
             "--audio-format", "mp3",
-            "--audio-quality", self.mp3_quality_var.get(),
+            "--audio-quality", self._selected_bitrate(),
             "--write-thumbnail",
             "--embed-metadata",
             "--embed-thumbnail",
@@ -3383,7 +3390,7 @@ class App:
         if not ffmpeg_path:
             raise RuntimeError("ffmpeg is not installed or could not be located.")
 
-        bitrate = self.mp3_quality_var.get().strip() or "320"
+        bitrate = self._selected_bitrate()
         cmd = [
             ffmpeg_path,
             "-y",
