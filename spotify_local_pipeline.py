@@ -971,6 +971,7 @@ class App:
         log_scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
         log_scrollbar.grid(row=0, column=1, sticky="ns")
         self.log_text.configure(yscrollcommand=log_scrollbar.set, state="disabled")
+        self._refresh_queue_view()
         self._apply_theme(self.theme_mode_var.get())
         self._set_download_state("idle")
 
@@ -2183,6 +2184,10 @@ class App:
     def _stop_download(self):
         self.stop_requested.set()
         self._set_download_state("stopping")
+        if self.download_queue:
+            self.download_queue.clear()
+            self._refresh_queue_view()
+            self._log("Cleared queued downloads.")
         process = self.download_process
         if process and process.poll() is None:
             try:
@@ -2224,36 +2229,27 @@ class App:
         Path(import_folder).mkdir(parents=True, exist_ok=True)
         Path(spotify_folder).mkdir(parents=True, exist_ok=True)
         self._save_settings()
-        self.stop_requested.clear()
 
         if self.worker and self.worker.is_alive():
-            messagebox.showinfo(APP_TITLE, "A download is already running.")
+            self._queue_download(url, import_folder, spotify_folder)
             return
 
-        self.last_downloaded_files = []
-        self.last_metadata_rows = []
-        self.last_processed_rows = []
-        self._set_download_state("running")
-        self._set_download_progress_percent(0)
-        self._log("Starting download pipeline...")
-        self.current_download_activity_id = self._add_activity_entry(
-            title="Preparing download",
-            artist="",
-            status="Starting",
-            details=url,
-            subtitle="Waiting for source details...",
-            progress=0,
-            kind="download",
-            can_delete=False,
-        )
-        self._set_pipeline_progress("starting", 0)
-        self.worker = threading.Thread(target=self._download_worker, args=(url, import_folder, spotify_folder), daemon=True)
-        self.worker.start()
-        self.root.after(500, self._watch_worker)
+        self._begin_download_job(url, import_folder, spotify_folder)
 
     def _watch_worker(self):
         if self.worker and self.worker.is_alive():
             self.root.after(500, self._watch_worker)
+            return
+        self.worker = None
+        self.download_process = None
+        if not self.stop_requested.is_set() and self.download_queue:
+            next_request = self.download_queue.pop(0)
+            self._refresh_queue_view()
+            self._begin_download_job(
+                next_request["url"],
+                next_request["import_folder"],
+                next_request["spotify_folder"],
+            )
             return
         if self.stop_requested.is_set():
             self._set_download_state("idle")
@@ -2261,7 +2257,6 @@ class App:
             self._set_download_state("done")
         else:
             self._set_download_state("idle")
-        self.download_process = None
 
     def _download_worker(self, url: str, import_folder: str, spotify_folder: str):
         try:
