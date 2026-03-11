@@ -616,6 +616,8 @@ class App:
         self.metadata_selected_index = None
         self.metadata_thumbnail_image = None
         self.status_animation_after = None
+        self.theme_toggle_after = None
+        self.theme_toggle_progress = 1.0 if saved.get("theme_mode", "light") == "dark" else 0.0
         self.current_theme_colors = {}
         self.download_state_var = tk.StringVar(value="Ready to download.")
         self.download_progress_value = tk.DoubleVar(value=0.0)
@@ -675,7 +677,7 @@ class App:
         ttk.Label(header, text=APP_TITLE, font=("Segoe UI", 18, "bold"), style="Hero.TLabel").grid(row=0, column=0, sticky="w")
         theme_toggle = ttk.Frame(header, style="Toolbar.TFrame")
         theme_toggle.grid(row=0, column=1, sticky="e")
-        self.theme_toggle_canvas = tk.Canvas(theme_toggle, width=122, height=52, highlightthickness=0, borderwidth=0, cursor="hand2")
+        self.theme_toggle_canvas = tk.Canvas(theme_toggle, width=72, height=34, highlightthickness=0, borderwidth=0, cursor="hand2")
         self.theme_toggle_canvas.pack(side="left")
         self.theme_toggle_canvas.bind("<Button-1>", self._toggle_theme_mode)
 
@@ -1010,7 +1012,37 @@ class App:
 
     def _toggle_theme_mode(self, _event=None):
         next_mode = "dark" if self.theme_mode_var.get().strip() == "light" else "light"
-        self._set_theme(next_mode)
+        self._animate_theme_toggle(next_mode)
+
+    def _animate_theme_toggle(self, next_mode: str, steps: int = 8, duration_ms: int = 160):
+        if not hasattr(self, "theme_toggle_canvas"):
+            self._set_theme(next_mode)
+            return
+        if self.theme_toggle_after:
+            try:
+                self.root.after_cancel(self.theme_toggle_after)
+            except Exception:
+                pass
+            self.theme_toggle_after = None
+        start = self.theme_toggle_progress
+        end = 1.0 if next_mode == "dark" else 0.0
+        step_ms = max(1, duration_ms // max(1, steps))
+
+        def ease(t: float) -> float:
+            return 1 - ((1 - t) * (1 - t))
+
+        def tick(index: int = 0):
+            progress = index / max(1, steps)
+            self.theme_toggle_progress = start + ((end - start) * ease(progress))
+            self._draw_theme_toggle(self.theme_toggle_progress)
+            if index < steps:
+                self.theme_toggle_after = self.root.after(step_ms, lambda: tick(index + 1))
+            else:
+                self.theme_toggle_progress = end
+                self.theme_toggle_after = None
+                self._set_theme(next_mode)
+
+        tick(0)
 
     def _apply_theme(self, mode: str):
         style = ttk.Style(self.root)
@@ -1222,34 +1254,72 @@ class App:
     def _update_theme_toggle_buttons(self):
         if not hasattr(self, "theme_toggle_canvas"):
             return
-        active_mode = self.theme_mode_var.get().strip() or "light"
+        self.theme_toggle_progress = 1.0 if (self.theme_mode_var.get().strip() or "light") == "dark" else 0.0
+        self._draw_theme_toggle(self.theme_toggle_progress)
+
+    def _draw_theme_toggle(self, progress: float):
+        if not hasattr(self, "theme_toggle_canvas"):
+            return
         colors = self.current_theme_colors or {}
         canvas = self.theme_toggle_canvas
         canvas.delete("all")
         canvas.configure(bg=colors.get("panel", "#ffffff"))
-        width = 122
-        height = 52
+        width = 72
+        height = 34
         pad = 3
-        knob_size = 44
-        if active_mode == "light":
-            track_fill = colors.get("panel_alt", "#e6edf5")
-            icon_fill = colors.get("fg", "#202020")
-            knob_x = width - knob_size - pad
-            left_icon = colors.get("fg", "#202020")
-            right_icon = colors.get("muted", "#8a8a8a")
+        knob_size = 28
+        light_outline = colors.get("accent", "#2f7dff")
+        dark_outline = colors.get("accent", "#b884ff")
+        outline = dark_outline if progress >= 0.5 else light_outline
+        light_track = colors.get("accent_soft", "#cfe0ff")
+        dark_track = "#050505"
+        track_fill = dark_track if progress >= 0.5 else light_track
+        knob_x = pad + ((width - knob_size - (pad * 2)) * progress)
+        outline_width = 2
+        canvas.configure(width=width, height=height)
+        self._create_rounded_rect(canvas, 2, 2, width - 2, height - 2, 10, fill=track_fill, outline=outline, width=outline_width)
+        self._create_rounded_rect(canvas, knob_x, pad, knob_x + knob_size, pad + knob_size, 8, fill="#f7f7f7", outline=outline, width=outline_width)
+
+        if progress < 0.5:
+            center_x = knob_x + (knob_size / 2)
+            center_y = height / 2
+            canvas.create_oval(center_x - 6, center_y - 6, center_x + 6, center_y + 6, fill=light_outline, outline=light_outline)
+            for dx, dy, ex, ey in (
+                (0, -11, 0, -8),
+                (0, 11, 0, 8),
+                (-11, 0, -8, 0),
+                (11, 0, 8, 0),
+                (-8, -8, -6, -6),
+                (8, -8, 6, -6),
+                (-8, 8, -6, 6),
+                (8, 8, 6, 6),
+            ):
+                canvas.create_line(center_x + dx, center_y + dy, center_x + ex, center_y + ey, fill=light_outline, width=2, capstyle=tk.ROUND)
         else:
-            track_fill = "#252525"
-            icon_fill = "#ffffff"
-            knob_x = pad
-            left_icon = colors.get("muted", "#bbbbbb")
-            right_icon = "#ffffff"
-        canvas.create_oval(2, 2, width - 2, height - 2, fill=track_fill, outline=colors.get("fg", "#202020"), width=2)
-        canvas.create_oval(knob_x, pad, knob_x + knob_size, pad + knob_size, fill=colors.get("panel", "#ffffff"), outline=colors.get("fg", "#202020"), width=2)
-        canvas.create_text(28, 26, text="☀", fill=left_icon, font=("Segoe UI Symbol", 18, "bold"))
-        canvas.create_text(93, 26, text="☾", fill=right_icon, font=("Segoe UI Symbol", 18, "bold"))
-        if active_mode == "dark":
-            canvas.create_text(104, 16, text="✦", fill=icon_fill, font=("Segoe UI Symbol", 10, "bold"))
-            canvas.create_text(112, 24, text="✦", fill=icon_fill, font=("Segoe UI Symbol", 8, "bold"))
+            center_x = knob_x + (knob_size / 2)
+            center_y = height / 2
+            canvas.create_oval(center_x - 7, center_y - 7, center_x + 7, center_y + 7, fill=dark_outline, outline=dark_outline)
+            canvas.create_oval(center_x - 2, center_y - 8, center_x + 9, center_y + 3, fill="#f7f7f7", outline="#f7f7f7")
+            for star_x, star_y, size in ((center_x + 5, center_y - 5, 7), (center_x + 10, center_y + 1, 6)):
+                canvas.create_text(star_x, star_y, text="\u2726", fill=dark_outline, font=("Segoe UI Symbol", size, "bold"))
+
+    def _create_rounded_rect(self, canvas, x1, y1, x2, y2, radius, **kwargs):
+        radius = max(0, min(radius, (x2 - x1) / 2, (y2 - y1) / 2))
+        points = [
+            x1 + radius, y1,
+            x2 - radius, y1,
+            x2, y1,
+            x2, y1 + radius,
+            x2, y2 - radius,
+            x2, y2,
+            x2 - radius, y2,
+            x1 + radius, y2,
+            x1, y2,
+            x1, y2 - radius,
+            x1, y1 + radius,
+            x1, y1,
+        ]
+        return canvas.create_polygon(points, smooth=True, splinesteps=24, **kwargs)
 
     def _build_metadata_panel(self):
         self.metadata_panel.columnconfigure(0, weight=2)
