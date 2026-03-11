@@ -589,6 +589,7 @@ class App:
         self.copy_to_spotify_folder_var = tk.BooleanVar(value=saved.get("copy_to_spotify_folder", True))
         self.write_tags_var = tk.BooleanVar(value=saved.get("write_embedded_tags", True))
         self.download_history = list(saved.get("download_history", []))
+        self.download_queue = []
         self.session_activity = []
         self.activity_images = {}
         self.activity_card_widgets = {}
@@ -671,10 +672,9 @@ class App:
         ttk.Label(header, text=APP_TITLE, font=("Segoe UI", 18, "bold"), style="Hero.TLabel").grid(row=0, column=0, sticky="w")
         theme_toggle = ttk.Frame(header, style="Toolbar.TFrame")
         theme_toggle.grid(row=0, column=1, sticky="e")
-        self.light_theme_button = ttk.Button(theme_toggle, text="☀", command=lambda: self._set_theme("light"), style="Theme.TButton", width=3)
-        self.light_theme_button.pack(side="left")
-        self.dark_theme_button = ttk.Button(theme_toggle, text="☾", command=lambda: self._set_theme("dark"), style="Theme.TButton", width=3)
-        self.dark_theme_button.pack(side="left", padx=(6, 0))
+        self.theme_toggle_canvas = tk.Canvas(theme_toggle, width=122, height=52, highlightthickness=0, borderwidth=0, cursor="hand2")
+        self.theme_toggle_canvas.pack(side="left")
+        self.theme_toggle_canvas.bind("<Button-1>", self._toggle_theme_mode)
 
         ttk.Label(
             self.main,
@@ -724,53 +724,23 @@ class App:
 
         home_intro = ttk.Frame(home, style="Card.TFrame", padding=14)
         home_intro.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
-        home_intro.columnconfigure(0, weight=1)
-        ttk.Label(home_intro, text="New Download", font=("Segoe UI", 16, "bold"), style="CardTitle.TLabel").grid(row=0, column=0, sticky="w")
+        home_intro.columnconfigure(1, weight=1)
+        ttk.Label(home_intro, text="YouTube URL", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10))
+        ttk.Entry(home_intro, textvariable=self.url_var).grid(row=0, column=1, sticky="ew")
         ttk.Label(
             home_intro,
             text="Paste a video or playlist URL, choose quality and output folders, then monitor every download in the session queue on the right.",
             style="CardSubtle.TLabel",
             wraplength=1180,
             justify="left",
-        ).grid(row=1, column=0, sticky="w", pady=(4, 0))
+        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
         control_stack = ttk.Frame(home, style="Shell.TFrame")
         control_stack.grid(row=1, column=0, sticky="nsew", padx=(0, 12))
         control_stack.columnconfigure(0, weight=1)
 
-        form_card = ttk.LabelFrame(control_stack, text="Download Setup", padding=14)
-        form_card.grid(row=0, column=0, sticky="ew")
-        form_card.columnconfigure(0, weight=1)
-        form = ttk.Frame(form_card, style="Card.TFrame")
-        form.grid(row=0, column=0, sticky="ew")
-        form.columnconfigure(1, weight=1)
-
-        ttk.Label(form, text="YouTube URL", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
-        ttk.Entry(form, textvariable=self.url_var).grid(row=0, column=1, sticky="ew", pady=(0, 8))
-        ttk.Label(form, text="Download folder", style="Panel.TLabel").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
-        import_frame = ttk.Frame(form, style="Panel.TFrame")
-        import_frame.grid(row=1, column=1, sticky="ew", pady=(0, 8))
-        import_frame.columnconfigure(0, weight=1)
-        ttk.Entry(import_frame, textvariable=self.import_folder_var).grid(row=0, column=0, sticky="ew")
-        ttk.Button(import_frame, text="Browse", command=self._choose_import_folder).grid(row=0, column=1, padx=(8, 0))
-        ttk.Label(form, text="Spotify-ready folder", style="Panel.TLabel").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
-        spotify_frame = ttk.Frame(form, style="Panel.TFrame")
-        spotify_frame.grid(row=2, column=1, sticky="ew", pady=(0, 8))
-        spotify_frame.columnconfigure(0, weight=1)
-        ttk.Entry(spotify_frame, textvariable=self.spotify_folder_var).grid(row=0, column=0, sticky="ew")
-        ttk.Button(spotify_frame, text="Browse", command=self._choose_spotify_folder).grid(row=0, column=1, padx=(8, 0))
-        ttk.Label(form, text="MP3 quality", style="Panel.TLabel").grid(row=3, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
-        ttk.Combobox(form, textvariable=self.mp3_quality_var, state="readonly", values=["320", "256", "192", "128"]).grid(row=3, column=1, sticky="w", pady=(0, 8))
-
-        quick_options = ttk.LabelFrame(control_stack, text="Quick Options", padding=14)
-        quick_options.grid(row=1, column=0, sticky="ew", pady=(10, 0))
-        ttk.Checkbutton(quick_options, text="Allow playlists", variable=self.playlist_var, style="Panel.TCheckbutton").grid(row=0, column=0, sticky="w")
-        ttk.Checkbutton(quick_options, text="Review metadata before import", variable=self.review_before_import_var, style="Panel.TCheckbutton").grid(row=1, column=0, sticky="w", pady=(6, 0))
-        ttk.Checkbutton(quick_options, text="Copy to Spotify-ready folder", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").grid(row=2, column=0, sticky="w", pady=(6, 0))
-        ttk.Checkbutton(quick_options, text="Embed MP3 tags and artwork", variable=self.write_tags_var, style="Panel.TCheckbutton").grid(row=3, column=0, sticky="w", pady=(6, 0))
-
         actions = ttk.LabelFrame(control_stack, text="Download Controls", padding=14)
-        actions.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        actions.grid(row=0, column=0, sticky="ew")
         action_row = ttk.Frame(actions, style="Toolbar.TFrame")
         action_row.pack(fill="x")
         self.download_button = ttk.Button(action_row, text="Download", command=self._start_download, style="Primary.TButton")
@@ -780,6 +750,51 @@ class App:
         self.download_progress = ttk.Progressbar(action_row, mode="determinate", maximum=100, variable=self.download_progress_value, length=180, style="Accent.Horizontal.TProgressbar")
         self.download_progress.pack(side="left", padx=(12, 0))
         ttk.Label(action_row, textvariable=self.download_state_var, style="Chip.TLabel").pack(side="left", padx=(12, 0))
+
+        queue_frame = ttk.LabelFrame(control_stack, text="In Queue", padding=14)
+        queue_frame.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        queue_frame.columnconfigure(0, weight=1)
+        queue_tree_frame = ttk.Frame(queue_frame, style="Card.TFrame")
+        queue_tree_frame.grid(row=0, column=0, sticky="ew")
+        queue_tree_frame.columnconfigure(0, weight=1)
+        self.queue_tree = ttk.Treeview(queue_tree_frame, columns=("url",), show="headings", height=4, selectmode="browse")
+        self.queue_tree.heading("url", text="Queued Download")
+        self.queue_tree.column("url", anchor="w", stretch=True, width=420)
+        queue_ybar = ttk.Scrollbar(queue_tree_frame, orient="vertical", command=self.queue_tree.yview)
+        self.queue_tree.configure(yscrollcommand=queue_ybar.set)
+        self.queue_tree.grid(row=0, column=0, sticky="ew")
+        queue_ybar.grid(row=0, column=1, sticky="ns")
+        self.queue_empty_label = ttk.Label(queue_frame, text="Nothing queued.", style="CardSubtle.TLabel")
+        self.queue_empty_label.grid(row=1, column=0, sticky="w", pady=(8, 0))
+
+        form_card = ttk.LabelFrame(control_stack, text="Download Setup", padding=14)
+        form_card.grid(row=2, column=0, sticky="ew", pady=(10, 0))
+        form_card.columnconfigure(0, weight=1)
+        form = ttk.Frame(form_card, style="Card.TFrame")
+        form.grid(row=0, column=0, sticky="ew")
+        form.columnconfigure(1, weight=1)
+
+        ttk.Label(form, text="Download folder", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
+        import_frame = ttk.Frame(form, style="Panel.TFrame")
+        import_frame.grid(row=0, column=1, sticky="ew", pady=(0, 8))
+        import_frame.columnconfigure(0, weight=1)
+        ttk.Entry(import_frame, textvariable=self.import_folder_var).grid(row=0, column=0, sticky="ew")
+        ttk.Button(import_frame, text="Browse", command=self._choose_import_folder).grid(row=0, column=1, padx=(8, 0))
+        ttk.Label(form, text="Spotify-ready folder", style="Panel.TLabel").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
+        spotify_frame = ttk.Frame(form, style="Panel.TFrame")
+        spotify_frame.grid(row=1, column=1, sticky="ew", pady=(0, 8))
+        spotify_frame.columnconfigure(0, weight=1)
+        ttk.Entry(spotify_frame, textvariable=self.spotify_folder_var).grid(row=0, column=0, sticky="ew")
+        ttk.Button(spotify_frame, text="Browse", command=self._choose_spotify_folder).grid(row=0, column=1, padx=(8, 0))
+        ttk.Label(form, text="MP3 quality", style="Panel.TLabel").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
+        ttk.Combobox(form, textvariable=self.mp3_quality_var, state="readonly", values=["320", "256", "192", "128"]).grid(row=2, column=1, sticky="w", pady=(0, 8))
+
+        quick_options = ttk.LabelFrame(control_stack, text="Quick Options", padding=14)
+        quick_options.grid(row=3, column=0, sticky="ew", pady=(10, 0))
+        ttk.Checkbutton(quick_options, text="Allow playlists", variable=self.playlist_var, style="Panel.TCheckbutton").grid(row=0, column=0, sticky="w")
+        ttk.Checkbutton(quick_options, text="Review metadata before import", variable=self.review_before_import_var, style="Panel.TCheckbutton").grid(row=1, column=0, sticky="w", pady=(6, 0))
+        ttk.Checkbutton(quick_options, text="Copy to Spotify-ready folder", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Checkbutton(quick_options, text="Embed MP3 tags and artwork", variable=self.write_tags_var, style="Panel.TCheckbutton").grid(row=3, column=0, sticky="w", pady=(6, 0))
 
         activity_frame = ttk.LabelFrame(home, text="Session Activity", padding=10)
         activity_frame.grid(row=1, column=1, sticky="nsew")
@@ -964,6 +979,10 @@ class App:
         self._apply_theme(mode)
         self._save_settings()
 
+    def _toggle_theme_mode(self, _event=None):
+        next_mode = "dark" if self.theme_mode_var.get().strip() == "light" else "light"
+        self._set_theme(next_mode)
+
     def _apply_theme(self, mode: str):
         style = ttk.Style(self.root)
         try:
@@ -1018,21 +1037,21 @@ class App:
         style.configure("CardChip.TLabel", background=colors["panel_alt"], foreground=colors["fg"], padding=(10, 6))
         style.configure("Badge.TLabel", background=colors["accent_soft"], foreground=colors["accent"], padding=(10, 5), font=("Segoe UI", 9, "bold"))
         style.configure("Chip.TLabel", background=colors["panel_alt"], foreground=colors["fg"], padding=(10, 6))
-        style.configure("TLabelframe", background=colors["panel"], foreground=colors["fg"], bordercolor=colors["border"], relief="solid")
+        style.configure("TLabelframe", background=colors["panel"], foreground=colors["fg"], bordercolor=colors["border"], relief="flat", borderwidth=1)
         style.configure("TLabelframe.Label", background=colors["panel"], foreground=colors["fg"])
-        style.configure("TButton", background=colors["panel"], foreground=colors["fg"], padding=(12, 8), borderwidth=0, font=("Segoe UI", 10))
+        style.configure("TButton", background=colors["panel"], foreground=colors["fg"], padding=(14, 9), borderwidth=1, relief="flat", font=("Segoe UI", 10))
         style.map("TButton", background=[("active", colors["panel_alt"])], foreground=[("active", colors["fg"])])
-        style.configure("Primary.TButton", background=colors["accent"], foreground=colors["panel"], padding=(14, 8), borderwidth=0)
+        style.configure("Primary.TButton", background=colors["accent"], foreground=colors["panel"], padding=(16, 9), borderwidth=1, relief="flat")
         style.map("Primary.TButton", background=[("active", colors["fg"]), ("disabled", colors["panel_alt"])], foreground=[("active", colors["accent"]), ("disabled", colors["muted"])])
-        style.configure("Secondary.TButton", background=colors["accent_soft"], foreground=colors["accent"], padding=(12, 8), borderwidth=0)
+        style.configure("Secondary.TButton", background=colors["accent_soft"], foreground=colors["accent"], padding=(14, 9), borderwidth=1, relief="flat")
         style.map("Secondary.TButton", background=[("active", colors["accent"]), ("disabled", colors["panel_alt"])], foreground=[("active", colors["panel"]), ("disabled", colors["muted"])])
-        style.configure("Nav.TButton", background=colors["panel"], foreground=colors["fg"], padding=(12, 7), borderwidth=0)
+        style.configure("Nav.TButton", background=colors["panel"], foreground=colors["fg"], padding=(14, 8), borderwidth=1, relief="flat")
         style.map("Nav.TButton", background=[("active", colors["panel_alt"])], foreground=[("active", colors["fg"])])
-        style.configure("Workspace.TButton", background=colors["panel_alt"], foreground=colors["fg"], padding=(14, 8), borderwidth=0)
+        style.configure("Workspace.TButton", background=colors["panel_alt"], foreground=colors["fg"], padding=(16, 9), borderwidth=1, relief="flat")
         style.map("Workspace.TButton", background=[("active", colors["accent_soft"])], foreground=[("active", colors["accent"])])
-        style.configure("Transport.TButton", background=colors["panel_alt"], foreground=colors["fg"], padding=(14, 8), borderwidth=0)
+        style.configure("Transport.TButton", background=colors["panel_alt"], foreground=colors["fg"], padding=(16, 9), borderwidth=1, relief="flat")
         style.map("Transport.TButton", background=[("active", colors["accent_soft"])], foreground=[("active", colors["accent"])])
-        style.configure("Danger.TButton", background=colors["danger"], foreground=colors["panel"], padding=(12, 8), borderwidth=0)
+        style.configure("Danger.TButton", background=colors["danger"], foreground=colors["panel"], padding=(14, 9), borderwidth=1, relief="flat")
         style.map("Danger.TButton", background=[("active", colors["fg"]), ("disabled", colors["panel_alt"])], foreground=[("active", colors["danger"]), ("disabled", colors["muted"])])
         style.configure("Theme.TButton", background=colors["panel_alt"], foreground=colors["muted"], padding=(10, 6), borderwidth=0, font=("Segoe UI", 9, "bold"))
         style.map("Theme.TButton", background=[("active", colors["panel"])], foreground=[("active", colors["fg"])])
@@ -1057,6 +1076,8 @@ class App:
             bordercolor=colors["border"],
             lightcolor=colors["border"],
             darkcolor=colors["border"],
+            relief="flat",
+            padding=(10, 7),
         )
         style.configure(
             "TCombobox",
@@ -1070,6 +1091,8 @@ class App:
             selectbackground=colors["accent_soft"],
             selectforeground=colors["fg"],
             insertcolor=colors["fg"],
+            relief="flat",
+            padding=(10, 7),
         )
         style.map(
             "TCombobox",
@@ -1080,8 +1103,8 @@ class App:
             selectbackground=[("readonly", colors["accent_soft"])],
             selectforeground=[("readonly", colors["fg"])],
         )
-        style.configure("Treeview", background=colors["panel"], fieldbackground=colors["panel"], foreground=colors["fg"], rowheight=32, borderwidth=0)
-        style.configure("Treeview.Heading", background=colors["panel_alt"], foreground=colors["fg"], padding=(8, 8), borderwidth=0, font=("Segoe UI", 10, "bold"))
+        style.configure("Treeview", background=colors["panel"], fieldbackground=colors["panel"], foreground=colors["fg"], rowheight=34, borderwidth=0, relief="flat")
+        style.configure("Treeview.Heading", background=colors["panel_alt"], foreground=colors["fg"], padding=(10, 9), borderwidth=0, relief="flat", font=("Segoe UI", 10, "bold"))
         style.map("Treeview", background=[("selected", colors["accent_soft"])], foreground=[("selected", colors["fg"])])
         style.map("Treeview.Heading", background=[("active", colors["panel"])])
         progress_light = "#8df0a8" if mode == "dark" else "#9af5ae"
@@ -1121,22 +1144,36 @@ class App:
         self._update_theme_toggle_buttons()
 
     def _update_theme_toggle_buttons(self):
-        if not hasattr(self, "light_theme_button"):
+        if not hasattr(self, "theme_toggle_canvas"):
             return
         active_mode = self.theme_mode_var.get().strip() or "light"
         colors = self.current_theme_colors or {}
-        active_bg = colors.get("accent", "#0f6cbd")
-        active_fg = colors.get("panel", "#ffffff")
-        inactive_bg = colors.get("panel_alt", "#e6edf5")
-        inactive_fg = colors.get("muted", "#5f6c7b")
-        self.light_theme_button.configure(style="Theme.TButton")
-        self.dark_theme_button.configure(style="Theme.TButton")
+        canvas = self.theme_toggle_canvas
+        canvas.delete("all")
+        canvas.configure(bg=colors.get("panel", "#ffffff"))
+        width = 122
+        height = 52
+        pad = 3
+        knob_size = 44
         if active_mode == "light":
-            self.light_theme_button.configure(style="Primary.TButton")
-            self.dark_theme_button.configure(style="Theme.TButton")
+            track_fill = colors.get("panel_alt", "#e6edf5")
+            icon_fill = colors.get("fg", "#202020")
+            knob_x = width - knob_size - pad
+            left_icon = colors.get("fg", "#202020")
+            right_icon = colors.get("muted", "#8a8a8a")
         else:
-            self.dark_theme_button.configure(style="Primary.TButton")
-            self.light_theme_button.configure(style="Theme.TButton")
+            track_fill = "#252525"
+            icon_fill = "#ffffff"
+            knob_x = pad
+            left_icon = colors.get("muted", "#bbbbbb")
+            right_icon = "#ffffff"
+        canvas.create_oval(2, 2, width - 2, height - 2, fill=track_fill, outline=colors.get("fg", "#202020"), width=2)
+        canvas.create_oval(knob_x, pad, knob_x + knob_size, pad + knob_size, fill=colors.get("panel", "#ffffff"), outline=colors.get("fg", "#202020"), width=2)
+        canvas.create_text(28, 26, text="☀", fill=left_icon, font=("Segoe UI Symbol", 18, "bold"))
+        canvas.create_text(93, 26, text="☾", fill=right_icon, font=("Segoe UI Symbol", 18, "bold"))
+        if active_mode == "dark":
+            canvas.create_text(104, 16, text="✦", fill=icon_fill, font=("Segoe UI Symbol", 10, "bold"))
+            canvas.create_text(112, 24, text="✦", fill=icon_fill, font=("Segoe UI Symbol", 8, "bold"))
 
     def _build_metadata_panel(self):
         self.metadata_panel.columnconfigure(0, weight=2)
@@ -2061,6 +2098,51 @@ class App:
             progress=100,
             can_delete=False,
         )
+
+    def _refresh_queue_view(self):
+        if not hasattr(self, "queue_tree"):
+            return
+        self.queue_tree.delete(*self.queue_tree.get_children())
+        for index, item in enumerate(self.download_queue):
+            label = item.get("url", "")
+            if len(label) > 80:
+                label = label[:77] + "..."
+            self.queue_tree.insert("", "end", iid=str(index), values=(label,))
+        if hasattr(self, "queue_empty_label"):
+            self.queue_empty_label.configure(text="Nothing queued." if not self.download_queue else f"{len(self.download_queue)} item(s) queued.")
+
+    def _queue_download(self, url: str, import_folder: str, spotify_folder: str):
+        request = {
+            "url": url,
+            "import_folder": import_folder,
+            "spotify_folder": spotify_folder,
+        }
+        self.download_queue.append(request)
+        self._refresh_queue_view()
+        self._log(f"Queued download: {url}")
+
+    def _begin_download_job(self, url: str, import_folder: str, spotify_folder: str):
+        self.last_downloaded_files = []
+        self.last_metadata_rows = []
+        self.last_processed_rows = []
+        self.stop_requested.clear()
+        self._set_download_state("running")
+        self._set_download_progress_percent(0)
+        self._log("Starting download pipeline...")
+        self.current_download_activity_id = self._add_activity_entry(
+            title="Preparing download",
+            artist="",
+            status="Starting",
+            details=url,
+            subtitle="Waiting for source details...",
+            progress=0,
+            kind="download",
+            can_delete=False,
+        )
+        self._set_pipeline_progress("starting", 0)
+        self.worker = threading.Thread(target=self._download_worker, args=(url, import_folder, spotify_folder), daemon=True)
+        self.worker.start()
+        self.root.after(500, self._watch_worker)
 
     def _kill_process_hard(self, process):
         if not process:
