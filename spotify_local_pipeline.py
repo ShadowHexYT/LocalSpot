@@ -733,6 +733,7 @@ class App:
         ttk.Label(home_intro, text="YouTube URL", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10))
         self.url_entry = ttk.Entry(home_intro, textvariable=self.url_var)
         self.url_entry.grid(row=0, column=1, sticky="ew")
+        self.url_entry.bind("<Return>", lambda _event: self._start_download())
         ttk.Label(
             home_intro,
             text="Paste a video or playlist URL, choose quality and output folders, then monitor every download in the session queue on the right.",
