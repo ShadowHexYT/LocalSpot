@@ -791,7 +791,10 @@ class App:
         ttk.Entry(spotify_frame, textvariable=self.spotify_folder_var).grid(row=0, column=0, sticky="ew")
         ttk.Button(spotify_frame, text="Browse", command=self._choose_spotify_folder).grid(row=0, column=1, padx=(8, 0))
         ttk.Label(form, text="MP3 quality", style="Panel.TLabel").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
-        ttk.Combobox(form, textvariable=self.mp3_quality_var, state="readonly", values=["Good", "Better", "Best"]).grid(row=2, column=1, sticky="w", pady=(0, 8))
+        quality_row = ttk.Frame(form, style="Panel.TFrame")
+        quality_row.grid(row=2, column=1, sticky="w", pady=(0, 8))
+        ttk.Combobox(quality_row, textvariable=self.mp3_quality_var, state="readonly", values=["Good", "Better", "Best"]).pack(side="left")
+        ttk.Button(quality_row, text="Import to Spotify", command=self._import_current_downloads_to_spotify, style="Secondary.TButton").pack(side="left", padx=(8, 0))
 
         ttk.Frame(control_stack, style="Divider.TFrame", height=2).grid(row=3, column=0, sticky="ew", pady=(8, 8))
 
@@ -3989,6 +3992,59 @@ class App:
                 can_delete=True,
             ))
             self.root.after(0, lambda: self._set_pipeline_progress("finishing", 100))
+
+    def _import_current_downloads_to_spotify(self):
+        import_folder = self.import_folder_var.get().strip()
+        spotify_folder = self.spotify_folder_var.get().strip()
+        if not import_folder or not Path(import_folder).exists():
+            messagebox.showinfo(APP_TITLE, "Set a valid download folder first.")
+            return
+        if not spotify_folder:
+            messagebox.showinfo(APP_TITLE, "Set a Spotify-ready folder first.")
+            return
+
+        files = []
+        for path in Path(import_folder).rglob("*"):
+            if path.is_file() and path.suffix.lower() in AUDIO_EXTENSIONS:
+                files.append(str(path.resolve()))
+        if not files:
+            messagebox.showinfo(APP_TITLE, "No downloaded audio files were found in the current download folder.")
+            return
+
+        rows = self._build_metadata_rows(sorted(set(files)))
+        self._move_rows_to_spotify(rows, spotify_folder)
+        self._record_session_event("Imported to Spotify", f"{len(rows)} item(s) moved into the Spotify-ready folder.")
+        self._reload_recent_state()
+        self._populate_workspace_views()
+        messagebox.showinfo(APP_TITLE, "Current downloaded files were moved into the Spotify-ready folder.")
+
+    def _move_rows_to_spotify(self, rows, spotify_folder: str):
+        Path(spotify_folder).mkdir(parents=True, exist_ok=True)
+        processed = []
+        for row in rows:
+            source = row.get("source_path", "")
+            if not source or not Path(source).exists():
+                self._log(f"Skipping missing source file: {source}")
+                continue
+            source_path = Path(source)
+            destination = Path(spotify_folder) / self._safe_rel_path(row)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, destination)
+            if self.write_tags_var.get():
+                self._write_mp3_tags(destination, row)
+            try:
+                source_path.unlink()
+            except Exception as exc:
+                self._log(f"Could not remove source after Spotify import {source_path}: {exc}")
+            processed_row = dict(row)
+            processed_row["spotify_path"] = str(destination)
+            processed.append(processed_row)
+            self._log(f"Imported to Spotify folder: {destination}")
+        if processed:
+            self.last_processed_rows = processed
+            self.last_metadata_rows = [dict(row) for row in processed]
+            self._write_manifest(processed, spotify_folder)
+            self._log(f"Wrote manifest: {Path(spotify_folder) / 'spotify_local_manifest.csv'}")
 
     def _delete_output_rows(self, rows):
         deleted_count = 0
