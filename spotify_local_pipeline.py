@@ -711,7 +711,7 @@ class App:
         home.columnconfigure(1, weight=1)
         home.rowconfigure(1, weight=1)
         self.workspace.columnconfigure(0, weight=1)
-        self.workspace.rowconfigure(2, weight=1)
+        self.workspace.rowconfigure(4, weight=1)
         settings.columnconfigure(0, weight=1)
         settings.rowconfigure(0, weight=1)
 
@@ -870,9 +870,11 @@ class App:
         workspace_actions.grid(row=2, column=0, sticky="ew")
         workspace_toolbar = ttk.Frame(workspace_actions, style="Toolbar.TFrame")
         workspace_toolbar.pack(fill="x")
-        ttk.Button(workspace_toolbar, text="Metadata", command=self._open_metadata_editor, style="Workspace.TButton").pack(side="left")
-        ttk.Button(workspace_toolbar, text="Trim", command=self._open_trim_from_selection, style="Workspace.TButton").pack(side="left", padx=(8, 0))
-        ttk.Button(workspace_toolbar, text="Refresh", command=self._refresh_workspace_files, style="Secondary.TButton").pack(side="left", padx=(12, 0))
+        for column in range(3):
+            workspace_toolbar.columnconfigure(column, weight=1)
+        ttk.Button(workspace_toolbar, text="Metadata", command=self._open_metadata_editor, style="Workspace.TButton").grid(row=0, column=0, sticky="ew")
+        ttk.Button(workspace_toolbar, text="Trim", command=self._open_trim_from_selection, style="Workspace.TButton").grid(row=0, column=1, sticky="ew", padx=(8, 8))
+        ttk.Button(workspace_toolbar, text="Refresh", command=self._refresh_workspace_files, style="Secondary.TButton").grid(row=0, column=2, sticky="ew")
 
         ttk.Frame(self.workspace, style="Divider.TFrame", height=2).grid(row=3, column=0, sticky="ew", pady=(8, 8))
 
@@ -1114,7 +1116,7 @@ class App:
         style.map("Secondary.TButton", background=[("active", colors["accent"]), ("disabled", colors["panel_alt"])], foreground=[("active", colors["panel"]), ("disabled", colors["muted"])])
         style.configure("Nav.TButton", background=colors["panel"], foreground=colors["fg"], padding=(14, 8), borderwidth=1, relief="flat")
         style.map("Nav.TButton", background=[("active", colors["panel_alt"])], foreground=[("active", colors["fg"])])
-        style.configure("Workspace.TButton", background=colors["panel_alt"], foreground=colors["fg"], padding=(16, 9), borderwidth=1, relief="flat")
+        style.configure("Workspace.TButton", background=colors["panel_alt"], foreground=colors["fg"], padding=(14, 8), borderwidth=1, relief="flat")
         style.map("Workspace.TButton", background=[("active", colors["accent_soft"])], foreground=[("active", colors["accent"])])
         style.configure("Transport.TButton", background=colors["panel_alt"], foreground=colors["fg"], padding=(16, 9), borderwidth=1, relief="flat")
         style.map("Transport.TButton", background=[("active", colors["accent_soft"])], foreground=[("active", colors["accent"])])
@@ -1224,8 +1226,10 @@ class App:
         )
         if hasattr(self, "log_text") and self.log_text:
             self.log_text.configure(bg=colors["field"], fg=colors["fg"], insertbackground=colors["fg"], selectbackground=colors["accent_soft"], relief="flat", font=("Segoe UI", 10), padx=10, pady=10, spacing1=4, spacing3=6)
+        if hasattr(self, "metadata_thumbnail_frame") and self.metadata_thumbnail_frame:
+            self.metadata_thumbnail_frame.configure(bg=colors["field"], highlightbackground=colors["border"], highlightcolor=colors["border"])
         if hasattr(self, "metadata_thumbnail_label") and self.metadata_thumbnail_label:
-            self.metadata_thumbnail_label.configure(bg=colors["field"], fg=colors["muted"], highlightbackground=colors["border"], highlightcolor=colors["border"])
+            self.metadata_thumbnail_label.configure(bg=colors["field"], fg=colors["muted"])
         if hasattr(self, "activity_canvas") and self.activity_canvas:
             self.activity_canvas.configure(background=colors["panel_soft"])
         if hasattr(self, "queue_canvas") and self.queue_canvas:
@@ -1360,24 +1364,33 @@ class App:
 
         inspector = ttk.LabelFrame(self.metadata_panel, text="Selected Track", padding=12)
         inspector.grid(row=1, column=1, sticky="nsew", padx=(12, 0))
-        inspector.columnconfigure(1, weight=1)
-        self.metadata_thumbnail_label = tk.Label(inspector, text="", anchor="center", width=22, height=11, relief="solid", bd=1)
-        self.metadata_thumbnail_label.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
-        ttk.Label(inspector, text="Title").grid(row=1, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_title_var).grid(row=1, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Artist").grid(row=2, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_artist_var).grid(row=2, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Album").grid(row=3, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_album_var).grid(row=3, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Track #").grid(row=4, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_track_var).grid(row=4, column=1, sticky="ew", pady=(0, 6))
+        inspector.columnconfigure(0, weight=1)
+        self.metadata_thumbnail_frame = tk.Frame(inspector, width=220, height=220, relief="solid", bd=1)
+        self.metadata_thumbnail_frame.grid(row=0, column=0, sticky="n", pady=(0, 12))
+        self.metadata_thumbnail_frame.grid_propagate(False)
+        self.metadata_thumbnail_frame.columnconfigure(0, weight=1)
+        self.metadata_thumbnail_frame.rowconfigure(0, weight=1)
+        self.metadata_thumbnail_label = tk.Label(self.metadata_thumbnail_frame, text="Artwork Preview", anchor="center", justify="center")
+        self.metadata_thumbnail_label.grid(row=0, column=0, sticky="nsew")
+        ttk.Label(inspector, text="Title").grid(row=1, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.meta_title_var).grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Artist").grid(row=3, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.meta_artist_var).grid(row=4, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Album").grid(row=5, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.meta_album_var).grid(row=6, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Track #").grid(row=7, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.meta_track_var).grid(row=8, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Playlist").grid(row=9, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.meta_playlist_var).grid(row=10, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Type").grid(row=11, column=0, sticky="w", pady=(0, 4))
+        ttk.Combobox(inspector, textvariable=self.meta_import_type_var, state="readonly", values=["playlist", "single"]).grid(row=12, column=0, sticky="ew", pady=(0, 8))
         meta_artwork_actions = ttk.Frame(inspector, style="Card.TFrame")
-        meta_artwork_actions.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(8, 6))
+        meta_artwork_actions.grid(row=13, column=0, sticky="ew", pady=(8, 6))
         ttk.Button(meta_artwork_actions, text="Use YouTube Thumbnail", command=self._use_metadata_thumbnail_artwork, style="Nav.TButton").pack(side="left")
         ttk.Button(meta_artwork_actions, text="Choose Artwork", command=self._choose_metadata_artwork, style="Nav.TButton").pack(side="left", padx=(8, 0))
         ttk.Button(meta_artwork_actions, text="Clear Artwork", command=self._clear_metadata_artwork, style="Nav.TButton").pack(side="left", padx=(8, 0))
-        ttk.Label(inspector, text="Source file").grid(row=6, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.meta_source_path_var, state="readonly").grid(row=6, column=1, sticky="ew", pady=(0, 6))
+        ttk.Label(inspector, text="Source file").grid(row=14, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.meta_source_path_var, state="readonly").grid(row=15, column=0, sticky="ew")
 
     def _build_files_panel(self):
         self.files_panel.columnconfigure(0, weight=1)
@@ -1403,11 +1416,11 @@ class App:
         ybar.grid(row=0, column=1, sticky="ns")
         xbar.grid(row=1, column=0, sticky="ew")
         self.files_tree.bind("<<TreeviewSelect>>", self._load_files_selection)
-        self.files_tree.bind("<ButtonRelease-1>", self._open_source_from_files_tree)
         actions = ttk.Frame(self.files_panel, style="Toolbar.TFrame")
         actions.grid(row=2, column=0, sticky="ew", pady=(10, 0))
         ttk.Button(actions, text="Trim Selected", command=self._open_trim_from_selection, style="Primary.TButton").pack(side="left")
         ttk.Button(actions, text="Delete Selected", command=self._delete_selected_from_workspace, style="Danger.TButton").pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text="Open Folder of Selection", command=self._open_selected_file_folder, style="Secondary.TButton").pack(side="left", padx=(8, 0))
 
         inspector = ttk.LabelFrame(self.files_panel, text="Selected File Metadata", padding=12)
         inspector.grid(row=1, column=1, sticky="nsew", padx=(12, 0))
@@ -2867,13 +2880,14 @@ class App:
             self.files_selected_index = None
             self._clear_files_form()
 
-    def _open_source_from_files_tree(self, event):
-        row_id = self.files_tree.identify_row(event.y)
-        column_id = self.files_tree.identify_column(event.x)
-        if not row_id or column_id != "#5":
+    def _open_selected_file_folder(self):
+        if self.files_selected_index is None or self.files_selected_index >= len(self.workspace_rows):
+            messagebox.showinfo(APP_TITLE, "Select a recent file first.")
             return
-        row = self.workspace_rows[int(row_id)]
+        row = self.workspace_rows[self.files_selected_index]
         source_path = row.get("source_path", "")
+        if not source_path:
+            source_path = row.get("spotify_path", "")
         if not source_path:
             return
         path = Path(source_path)
@@ -2997,7 +3011,7 @@ class App:
             var.set("")
         self.meta_import_type_var.set("playlist")
         self.metadata_thumbnail_image = None
-        self.metadata_thumbnail_label.configure(image="", text="")
+        self.metadata_thumbnail_label.configure(image="", text="Artwork Preview")
 
     def _load_metadata_selection(self, _event=None):
         selected = self.metadata_tree.selection()
@@ -3037,7 +3051,7 @@ class App:
         source_path = row.get("source_path", "")
         if not source_path or not Path(source_path).exists() or not MUTAGEN_AVAILABLE:
             self.metadata_thumbnail_image = None
-            self.metadata_thumbnail_label.configure(image="", text="")
+            self.metadata_thumbnail_label.configure(image="", text="Artwork Preview")
             return
         try:
             tags = ID3(str(source_path))
@@ -3055,7 +3069,7 @@ class App:
             self.metadata_thumbnail_label.configure(image=image, text="")
         except Exception:
             self.metadata_thumbnail_image = None
-            self.metadata_thumbnail_label.configure(image="", text="")
+            self.metadata_thumbnail_label.configure(image="", text="Artwork Preview")
 
     def _ensure_row_artwork_path(self, row: dict) -> dict:
         if row.get("artwork_path", "").strip():
@@ -3163,7 +3177,7 @@ class App:
             self._load_metadata_thumbnail(dict(self.last_metadata_rows[self.metadata_selected_index]) | {"artwork_path": ""})
         else:
             self.metadata_thumbnail_image = None
-            self.metadata_thumbnail_label.configure(image="", text="")
+            self.metadata_thumbnail_label.configure(image="", text="Artwork Preview")
 
     def _use_files_thumbnail_artwork(self):
         if self.files_selected_index is None or self.files_selected_index >= len(self.workspace_rows):
