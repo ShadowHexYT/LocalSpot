@@ -2078,6 +2078,9 @@ class App:
         return f"activity-{self.activity_sequence}"
 
     def _load_activity_thumbnail(self, entry: dict):
+        cached_image = self.activity_images.get(entry["id"])
+        if cached_image is not None:
+            return cached_image
         artwork_path = entry.get("artwork_path", "")
         if artwork_path and Path(artwork_path).exists():
             try:
