@@ -909,7 +909,6 @@ class App:
         ttk.Checkbutton(options, text="Review metadata before sending to Spotify folder", variable=self.review_before_import_var, style="Panel.TCheckbutton").pack(anchor="w")
         ttk.Checkbutton(options, text="Copy cleaned songs into Spotify-ready folder automatically", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").pack(anchor="w")
         ttk.Checkbutton(options, text="Write corrected embedded MP3 tags with mutagen", variable=self.write_tags_var, style="Panel.TCheckbutton").pack(anchor="w")
-        ttk.Checkbutton(options, text="Open output folder when finished", variable=self.open_folder_var, style="Panel.TCheckbutton").pack(anchor="w")
         ttk.Checkbutton(options, text="Keep temp files created during processing", variable=self.keep_temp_var, style="Panel.TCheckbutton").pack(anchor="w")
 
         ttk.Frame(self.settings_content, style="Divider.TFrame", height=2).grid(row=3, column=0, sticky="ew", pady=(8, 8))
@@ -2201,7 +2200,7 @@ class App:
             progress_row = ttk.Frame(card, style="Card.TFrame")
             progress_row.grid(row=3, column=1, sticky="ew", pady=(8, 0))
             progress_row.columnconfigure(0, weight=1)
-            progress_bar = ttk.Progressbar(progress_row, mode="determinate", maximum=100)
+            progress_bar = ttk.Progressbar(progress_row, mode="determinate", maximum=100, style="Accent.Horizontal.TProgressbar")
             progress_bar.grid(row=0, column=0, sticky="ew")
             if progress_value is None:
                 progress_bar.configure(value=0)
@@ -2477,15 +2476,13 @@ class App:
                 self._remember_download_url(url)
 
             if self.review_before_import_var.get() and rows:
-                self.root.after(0, self._open_metadata_editor)
+                self.root.after(0, lambda: self._open_metadata_editor(focus_tab=False))
             elif self.copy_to_spotify_folder_var.get() and rows:
                 self._process_and_send_rows(rows, spotify_folder)
 
             self._log("Pipeline finished.")
             self.root.after(0, lambda: self._update_activity_entry(self.current_download_activity_id, status="Finished", details="Processing completed for this session."))
             self.root.after(0, lambda: self._set_pipeline_progress("done", 100))
-            if self.open_folder_var.get():
-                self._open_folder(spotify_folder if self.copy_to_spotify_folder_var.get() else import_folder)
         except Exception as exc:
             if self.stop_requested.is_set():
                 self._log("Download stopped.")
@@ -3210,7 +3207,7 @@ class App:
     def _play_trim_full_track(self):
         self._play_audio_range()
 
-    def _open_metadata_editor(self):
+    def _open_metadata_editor(self, focus_tab: bool = True):
         if not self.last_metadata_rows:
             self._reload_recent_state()
         if not self.last_metadata_rows:
@@ -3218,7 +3215,7 @@ class App:
             return
         self._populate_metadata_tree()
         self._set_workspace_status("Metadata", f"Editing {len(self.last_metadata_rows)} track(s) inside the app")
-        self._show_workspace_panel("metadata")
+        self._show_workspace_panel("metadata", focus_tab=focus_tab)
 
     def _open_output_file_manager(self):
         if not self.last_processed_rows and not self.last_metadata_rows:
