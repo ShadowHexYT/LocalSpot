@@ -618,6 +618,7 @@ class App:
         self.trim_selected_clip_var = tk.StringVar(value="Editing: new clip")
         self.metadata_selected_index = None
         self.metadata_thumbnail_image = None
+        self.file_thumbnail_image = None
         self.status_animation_after = None
         self.theme_toggle_after = None
         self.theme_toggle_progress = 1.0 if saved.get("theme_mode", "light") == "dark" else 0.0
@@ -1233,6 +1234,10 @@ class App:
             self.metadata_thumbnail_frame.configure(bg=colors["field"], highlightbackground=colors["border"], highlightcolor=colors["border"])
         if hasattr(self, "metadata_thumbnail_label") and self.metadata_thumbnail_label:
             self.metadata_thumbnail_label.configure(bg=colors["field"], fg=colors["muted"])
+        if hasattr(self, "file_thumbnail_frame") and self.file_thumbnail_frame:
+            self.file_thumbnail_frame.configure(bg=colors["field"], highlightbackground=colors["border"], highlightcolor=colors["border"])
+        if hasattr(self, "file_thumbnail_label") and self.file_thumbnail_label:
+            self.file_thumbnail_label.configure(bg=colors["field"], fg=colors["muted"])
         if hasattr(self, "activity_canvas") and self.activity_canvas:
             self.activity_canvas.configure(background=colors["panel_soft"])
         if hasattr(self, "queue_canvas") and self.queue_canvas:
@@ -1427,31 +1432,38 @@ class App:
 
         inspector = ttk.LabelFrame(self.files_panel, text="Selected File Metadata", padding=12)
         inspector.grid(row=1, column=1, sticky="nsew", padx=(12, 0))
-        inspector.columnconfigure(1, weight=1)
-        ttk.Label(inspector, text="Title").grid(row=0, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.file_title_var).grid(row=0, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Artist").grid(row=1, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.file_artist_var).grid(row=1, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Album").grid(row=2, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.file_album_var).grid(row=2, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Track #").grid(row=3, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.file_track_var).grid(row=3, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Playlist").grid(row=4, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.file_playlist_var).grid(row=4, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Type").grid(row=5, column=0, sticky="w", pady=(0, 6))
-        ttk.Combobox(inspector, textvariable=self.file_import_type_var, state="readonly", values=["playlist", "single"]).grid(row=5, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Source file").grid(row=6, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.file_source_path_var, state="readonly").grid(row=6, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Spotify file").grid(row=7, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.file_spotify_path_var, state="readonly").grid(row=7, column=1, sticky="ew", pady=(0, 6))
-        ttk.Label(inspector, text="Artwork").grid(row=8, column=0, sticky="w", pady=(0, 6))
-        ttk.Entry(inspector, textvariable=self.file_artwork_path_var, state="readonly").grid(row=8, column=1, sticky="ew", pady=(0, 6))
+        inspector.columnconfigure(0, weight=1)
+        self.file_thumbnail_frame = tk.Frame(inspector, width=220, height=220, relief="solid", bd=1)
+        self.file_thumbnail_frame.grid(row=0, column=0, sticky="n", pady=(0, 12))
+        self.file_thumbnail_frame.grid_propagate(False)
+        self.file_thumbnail_frame.columnconfigure(0, weight=1)
+        self.file_thumbnail_frame.rowconfigure(0, weight=1)
+        self.file_thumbnail_label = tk.Label(self.file_thumbnail_frame, text="Artwork Preview", anchor="center", justify="center")
+        self.file_thumbnail_label.grid(row=0, column=0, sticky="nsew")
+        ttk.Label(inspector, text="Title").grid(row=1, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.file_title_var).grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Artist").grid(row=3, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.file_artist_var).grid(row=4, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Album").grid(row=5, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.file_album_var).grid(row=6, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Track #").grid(row=7, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.file_track_var).grid(row=8, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Playlist").grid(row=9, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.file_playlist_var).grid(row=10, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Type").grid(row=11, column=0, sticky="w", pady=(0, 4))
+        ttk.Combobox(inspector, textvariable=self.file_import_type_var, state="readonly", values=["playlist", "single"]).grid(row=12, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Source file").grid(row=13, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.file_source_path_var, state="readonly").grid(row=14, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Spotify file").grid(row=15, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.file_spotify_path_var, state="readonly").grid(row=16, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(inspector, text="Artwork").grid(row=17, column=0, sticky="w", pady=(0, 4))
+        ttk.Entry(inspector, textvariable=self.file_artwork_path_var, state="readonly").grid(row=18, column=0, sticky="ew", pady=(0, 8))
         file_artwork_actions = ttk.Frame(inspector, style="Card.TFrame")
-        file_artwork_actions.grid(row=9, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        file_artwork_actions.grid(row=19, column=0, sticky="ew", pady=(0, 6))
         ttk.Button(file_artwork_actions, text="Use YouTube Thumbnail", command=self._use_files_thumbnail_artwork, style="Nav.TButton").pack(side="left")
         ttk.Button(file_artwork_actions, text="Choose Artwork", command=self._choose_files_artwork, style="Nav.TButton").pack(side="left", padx=(8, 0))
         ttk.Button(file_artwork_actions, text="Clear Artwork", command=self._clear_files_artwork, style="Nav.TButton").pack(side="left", padx=(8, 0))
-        ttk.Button(inspector, text="Save File Metadata", command=self._apply_files_form, style="Primary.TButton").grid(row=10, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        ttk.Button(inspector, text="Save File Metadata", command=self._apply_files_form, style="Primary.TButton").grid(row=20, column=0, sticky="ew", pady=(10, 0))
 
     def _build_trim_panel(self):
         self.trim_panel.columnconfigure(0, weight=5)
@@ -2547,6 +2559,7 @@ class App:
             files = self._run_download(url, import_folder)
             self.last_downloaded_files = files
             rows = self._build_metadata_rows(files, manual_title=manual_title, manual_artist=manual_artist)
+            self._embed_artwork_into_source_rows(rows)
             self.last_metadata_rows = rows
             self.root.after(0, lambda: self._set_pipeline_progress("metadata", 100))
             if self.stop_requested.is_set():
@@ -2920,6 +2933,9 @@ class App:
         ):
             var.set("")
         self.file_import_type_var.set("playlist")
+        self.file_thumbnail_image = None
+        if hasattr(self, "file_thumbnail_label"):
+            self.file_thumbnail_label.configure(image="", text="Artwork Preview")
 
     def _load_files_selection(self, _event=None):
         selected = self.files_tree.selection()
@@ -2929,7 +2945,8 @@ class App:
             return
         idx = int(selected[0])
         self.files_selected_index = idx
-        row = self.workspace_rows[idx]
+        row = self._ensure_row_artwork_path(dict(self.workspace_rows[idx]))
+        self.workspace_rows[idx] = row
         self.file_title_var.set(row.get("title", ""))
         self.file_artist_var.set(row.get("artist", ""))
         self.file_album_var.set(row.get("album", ""))
@@ -2939,6 +2956,45 @@ class App:
         self.file_source_path_var.set(row.get("source_path", ""))
         self.file_spotify_path_var.set(row.get("spotify_path", ""))
         self.file_artwork_path_var.set(row.get("artwork_path", ""))
+        self._load_files_thumbnail(row)
+
+    def _load_files_thumbnail(self, row):
+        artwork_path = row.get("artwork_path", "")
+        if artwork_path and Path(artwork_path).exists():
+            try:
+                image = tk.PhotoImage(file=artwork_path)
+                width = max(image.width(), 1)
+                height = max(image.height(), 1)
+                subsample = max(1, max(width // 160, height // 160))
+                if subsample > 1:
+                    image = image.subsample(subsample, subsample)
+                self.file_thumbnail_image = image
+                self.file_thumbnail_label.configure(image=image, text="")
+                return
+            except Exception:
+                pass
+        source_path = row.get("source_path", "") or row.get("spotify_path", "")
+        if not source_path or not Path(source_path).exists() or not MUTAGEN_AVAILABLE:
+            self.file_thumbnail_image = None
+            self.file_thumbnail_label.configure(image="", text="Artwork Preview")
+            return
+        try:
+            tags = ID3(str(source_path))
+            frames = tags.getall("APIC")
+            if not frames:
+                raise ValueError("No APIC frame")
+            image_data = base64.b64encode(frames[0].data).decode("ascii")
+            image = tk.PhotoImage(data=image_data)
+            width = max(image.width(), 1)
+            height = max(image.height(), 1)
+            subsample = max(1, max(width // 160, height // 160))
+            if subsample > 1:
+                image = image.subsample(subsample, subsample)
+            self.file_thumbnail_image = image
+            self.file_thumbnail_label.configure(image=image, text="")
+        except Exception:
+            self.file_thumbnail_image = None
+            self.file_thumbnail_label.configure(image="", text="Artwork Preview")
 
     def _sync_workspace_row(self, updated_row: dict):
         source_path = updated_row.get("source_path", "")
@@ -3900,6 +3956,17 @@ class App:
             dest_tags.save(str(target_mp3), v2_version=3)
         except Exception as exc:
             self._log(f"Could not copy cover art to {target_mp3.name}: {exc}")
+
+    def _embed_artwork_into_source_rows(self, rows):
+        for row in rows:
+            source_path = Path(row.get("source_path", ""))
+            if not source_path.exists() or source_path.suffix.lower() != ".mp3":
+                continue
+            artwork_path = row.get("artwork_path", "") or self._find_thumbnail_for_audio(source_path)
+            if artwork_path and Path(artwork_path).exists():
+                updated_row = dict(row)
+                updated_row["artwork_path"] = artwork_path
+                self._write_mp3_tags(source_path, updated_row)
 
     def _prefetch_activity_thumbnail(self, url: str) -> str:
         yt_dlp_path = self._resolve_tool_path("yt-dlp")
