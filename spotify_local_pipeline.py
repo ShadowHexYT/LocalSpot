@@ -1224,6 +1224,8 @@ class App:
         )
         if hasattr(self, "log_text") and self.log_text:
             self.log_text.configure(bg=colors["field"], fg=colors["fg"], insertbackground=colors["fg"], selectbackground=colors["accent_soft"], relief="flat", font=("Segoe UI", 10), padx=10, pady=10, spacing1=4, spacing3=6)
+        if hasattr(self, "metadata_thumbnail_label") and self.metadata_thumbnail_label:
+            self.metadata_thumbnail_label.configure(bg=colors["field"], fg=colors["muted"], highlightbackground=colors["border"], highlightcolor=colors["border"])
         if hasattr(self, "activity_canvas") and self.activity_canvas:
             self.activity_canvas.configure(background=colors["panel_soft"])
         if hasattr(self, "queue_canvas") and self.queue_canvas:
@@ -1359,7 +1361,7 @@ class App:
         inspector = ttk.LabelFrame(self.metadata_panel, text="Selected Track", padding=12)
         inspector.grid(row=1, column=1, sticky="nsew", padx=(12, 0))
         inspector.columnconfigure(1, weight=1)
-        self.metadata_thumbnail_label = ttk.Label(inspector, text="No artwork", anchor="center")
+        self.metadata_thumbnail_label = tk.Label(inspector, text="", anchor="center", width=22, height=11, relief="solid", bd=1)
         self.metadata_thumbnail_label.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 12))
         ttk.Label(inspector, text="Title").grid(row=1, column=0, sticky="w", pady=(0, 6))
         ttk.Entry(inspector, textvariable=self.meta_title_var).grid(row=1, column=1, sticky="ew", pady=(0, 6))
@@ -2819,11 +2821,15 @@ class App:
 
     def _populate_metadata_tree(self):
         self.metadata_tree.delete(*self.metadata_tree.get_children())
-        for index, row in enumerate(self.last_metadata_rows):
+        normalized_rows = []
+        for index, existing_row in enumerate(self.last_metadata_rows):
+            row = self._ensure_row_artwork_path(dict(existing_row))
+            normalized_rows.append(row)
             self.metadata_tree.insert("", "end", iid=str(index), values=(
                 row.get("title", ""),
                 row.get("artist", ""),
             ))
+        self.last_metadata_rows = normalized_rows
         if self.last_metadata_rows:
             if self.metadata_selected_index is None or self.metadata_selected_index >= len(self.last_metadata_rows):
                 self.metadata_selected_index = 0
@@ -2991,7 +2997,7 @@ class App:
             var.set("")
         self.meta_import_type_var.set("playlist")
         self.metadata_thumbnail_image = None
-        self.metadata_thumbnail_label.configure(image="", text="No artwork")
+        self.metadata_thumbnail_label.configure(image="", text="")
 
     def _load_metadata_selection(self, _event=None):
         selected = self.metadata_tree.selection()
@@ -3000,7 +3006,8 @@ class App:
             return
         idx = int(selected[0])
         self.metadata_selected_index = idx
-        row = self.last_metadata_rows[idx]
+        row = self._ensure_row_artwork_path(dict(self.last_metadata_rows[idx]))
+        self.last_metadata_rows[idx] = row
         self.meta_filename_var.set(row.get("filename", ""))
         self.meta_title_var.set(row.get("title", ""))
         self.meta_artist_var.set(row.get("artist", ""))
@@ -3017,6 +3024,11 @@ class App:
         if artwork_path and Path(artwork_path).exists():
             try:
                 image = tk.PhotoImage(file=artwork_path)
+                width = max(image.width(), 1)
+                height = max(image.height(), 1)
+                subsample = max(1, max(width // 160, height // 160))
+                if subsample > 1:
+                    image = image.subsample(subsample, subsample)
                 self.metadata_thumbnail_image = image
                 self.metadata_thumbnail_label.configure(image=image, text="")
                 return
@@ -3025,7 +3037,7 @@ class App:
         source_path = row.get("source_path", "")
         if not source_path or not Path(source_path).exists() or not MUTAGEN_AVAILABLE:
             self.metadata_thumbnail_image = None
-            self.metadata_thumbnail_label.configure(image="", text="No artwork")
+            self.metadata_thumbnail_label.configure(image="", text="")
             return
         try:
             tags = ID3(str(source_path))
@@ -3034,11 +3046,25 @@ class App:
                 raise ValueError("No APIC frame")
             image_data = base64.b64encode(frames[0].data).decode("ascii")
             image = tk.PhotoImage(data=image_data)
+            width = max(image.width(), 1)
+            height = max(image.height(), 1)
+            subsample = max(1, max(width // 160, height // 160))
+            if subsample > 1:
+                image = image.subsample(subsample, subsample)
             self.metadata_thumbnail_image = image
             self.metadata_thumbnail_label.configure(image=image, text="")
         except Exception:
             self.metadata_thumbnail_image = None
-            self.metadata_thumbnail_label.configure(image="", text="No artwork")
+            self.metadata_thumbnail_label.configure(image="", text="")
+
+    def _ensure_row_artwork_path(self, row: dict) -> dict:
+        if row.get("artwork_path", "").strip():
+            return row
+        source_path = row.get("source_path", "") or row.get("spotify_path", "")
+        thumbnail = self._find_thumbnail_for_audio(source_path)
+        if thumbnail:
+            row["artwork_path"] = thumbnail
+        return row
 
     def _find_thumbnail_for_audio(self, audio_path: Path | str) -> str:
         if not audio_path:
@@ -3137,7 +3163,7 @@ class App:
             self._load_metadata_thumbnail(dict(self.last_metadata_rows[self.metadata_selected_index]) | {"artwork_path": ""})
         else:
             self.metadata_thumbnail_image = None
-            self.metadata_thumbnail_label.configure(image="", text="No artwork")
+            self.metadata_thumbnail_label.configure(image="", text="")
 
     def _use_files_thumbnail_artwork(self):
         if self.files_selected_index is None or self.files_selected_index >= len(self.workspace_rows):
