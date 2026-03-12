@@ -2270,12 +2270,31 @@ class App:
             image = self._load_activity_thumbnail(entry)
             if image:
                 preview.configure(image=image, text="")
+            target_path = self._activity_target_path(entry)
+            button_state = "normal" if entry.get("can_delete") and (entry.get("source_path") or entry.get("spotify_path")) else "disabled"
+            action_row = ttk.Frame(card, style="Card.TFrame")
+            action_row.grid(row=0, column=2, sticky="ne", padx=(12, 0))
+            ttk.Button(
+                action_row,
+                text="📁",
+                command=lambda item_path=target_path: self._open_folder(str(Path(item_path).parent) if item_path else ""),
+                style="Nav.TButton",
+                state="normal" if target_path else "disabled",
+                width=3,
+            ).pack(side="left")
+            ttk.Button(
+                action_row,
+                text="X",
+                command=lambda item_id=entry["id"]: self._delete_activity_entry(item_id),
+                style="Danger.TButton",
+                state=button_state,
+                width=3,
+            ).pack(side="left", padx=(6, 0))
             title_text = entry.get("title", "Activity")
             artist_text = entry.get("artist", "")
             ttk.Label(card, text=title_text, style="CardTitle.TLabel").grid(row=0, column=1, sticky="w")
             if artist_text:
                 ttk.Label(card, text=artist_text, style="CardSubtle.TLabel").grid(row=1, column=1, sticky="w", pady=(2, 0))
-            target_path = self._activity_target_path(entry)
             facts = [part for part in (
                 self._format_duration_text(target_path),
                 self._format_size_text(target_path),
@@ -2285,10 +2304,9 @@ class App:
                 ttk.Label(card, text=" | ".join(facts), style="CardSubtle.TLabel").grid(row=2, column=1, sticky="w", pady=(6, 0))
             progress_value = entry.get("progress")
             progress_row = ttk.Frame(card, style="Card.TFrame")
-            progress_row.grid(row=3, column=1, sticky="ew", pady=(8, 0))
-            progress_row.columnconfigure(0, weight=1)
-            progress_bar = ttk.Progressbar(progress_row, mode="determinate", maximum=100, style="Accent.Horizontal.TProgressbar")
-            progress_bar.grid(row=0, column=0, sticky="ew")
+            progress_row.grid(row=3, column=1, sticky="w", pady=(8, 0))
+            progress_bar = ttk.Progressbar(progress_row, mode="determinate", maximum=100, style="Accent.Horizontal.TProgressbar", length=150)
+            progress_bar.grid(row=0, column=0, sticky="w")
             if progress_value is None:
                 progress_bar.configure(value=0)
                 progress_label = "0%"
@@ -2296,24 +2314,6 @@ class App:
                 progress_bar.configure(value=max(0, min(100, float(progress_value))))
                 progress_label = f"{int(round(float(progress_value)))}%"
             ttk.Label(progress_row, text=progress_label, style="CardSubtle.TLabel").grid(row=0, column=1, sticky="e", padx=(10, 0))
-            location_row = ttk.Frame(card, style="Card.TFrame")
-            location_row.grid(row=4, column=1, sticky="w", pady=(8, 0))
-            ttk.Button(
-                location_row,
-                text=self._short_location_label(target_path),
-                command=lambda item_path=target_path: self._open_folder(str(Path(item_path).parent) if item_path else ""),
-                style="Nav.TButton",
-                state="normal" if target_path else "disabled",
-            ).pack(side="left")
-            action_text = "Delete"
-            button_state = "normal" if entry.get("can_delete") and (entry.get("source_path") or entry.get("spotify_path")) else "disabled"
-            ttk.Button(
-                card,
-                text=action_text,
-                command=lambda item_id=entry["id"]: self._delete_activity_entry(item_id),
-                style="Danger.TButton",
-                state=button_state,
-            ).grid(row=0, column=2, rowspan=5, sticky="ne", padx=(12, 0))
             self.activity_card_widgets[entry["id"]] = card
         self._sync_activity_canvas()
 
