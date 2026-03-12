@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import webbrowser
@@ -730,17 +731,22 @@ class App:
         home_intro = ttk.Frame(home, style="Card.TFrame", padding=14)
         home_intro.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
         home_intro.columnconfigure(1, weight=1)
+        home_intro.columnconfigure(2, weight=0)
         ttk.Label(home_intro, text="YouTube URL", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10))
         self.url_entry = ttk.Entry(home_intro, textvariable=self.url_var)
-        self.url_entry.grid(row=0, column=1, sticky="ew")
+        self.url_entry.grid(row=0, column=1, columnspan=2, sticky="ew")
         self.url_entry.bind("<Return>", lambda _event: self._start_download())
+        status_group = ttk.Frame(home_intro, style="Card.TFrame", padding=10)
+        status_group.grid(row=1, column=2, sticky="e", pady=(8, 0))
+        ttk.Label(status_group, text="Status", style="Panel.TLabel").pack(side="left")
+        ttk.Label(status_group, textvariable=self.download_state_var, style="Chip.TLabel").pack(side="left", padx=(8, 0))
         ttk.Label(
             home_intro,
             text="Paste a video or playlist URL, choose quality and output folders, then monitor every download in the session queue on the right.",
             style="CardSubtle.TLabel",
-            wraplength=1180,
+            wraplength=900,
             justify="left",
-        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0))
+        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0), padx=(0, 12))
 
         control_stack = ttk.Frame(home, style="DividerHost.TFrame")
         control_stack.grid(row=1, column=0, sticky="nsew", padx=(0, 12))
@@ -751,12 +757,14 @@ class App:
         actions.grid(row=0, column=0, sticky="ew")
         action_row = ttk.Frame(actions, style="Toolbar.TFrame")
         action_row.pack(fill="x")
-        self.download_button = ttk.Button(action_row, text="Download", command=self._start_download, style="Primary.TButton")
+        action_row.columnconfigure(0, weight=0)
+        action_row.columnconfigure(1, weight=0)
+        button_group = ttk.Frame(action_row, style="Toolbar.TFrame")
+        button_group.grid(row=0, column=0, sticky="w")
+        self.download_button = ttk.Button(button_group, text="Download", command=self._start_download, style="Primary.TButton")
         self.download_button.pack(side="left")
-        self.stop_button = ttk.Button(action_row, text="Force Stop", command=self._stop_download, state="disabled", style="Danger.TButton")
+        self.stop_button = ttk.Button(button_group, text="Force Stop", command=self._stop_download, state="disabled", style="Danger.TButton")
         self.stop_button.pack(side="left", padx=(8, 0))
-        ttk.Label(action_row, text="Status", style="Panel.TLabel").pack(side="left", padx=(12, 6))
-        ttk.Label(action_row, textvariable=self.download_state_var, style="Chip.TLabel").pack(side="left")
 
         ttk.Frame(control_stack, style="Divider.TFrame", height=2).grid(row=1, column=0, sticky="ew", pady=(8, 8))
 
@@ -1923,7 +1931,7 @@ class App:
         return text
 
     def _extract_activity_info_from_line(self, line: str) -> dict:
-        details = {"progress": None, "title": "", "artist": "", "details": ""}
+        details = {"progress": None, "title": "", "artist": "", "details": "", "artwork_path": ""}
         match = re.search(r"(\d+(?:\.\d+)?)%", line)
         if match:
             try:
@@ -1941,6 +1949,17 @@ class App:
             details["title"] = stem
             details["artist"] = artist
             details["details"] = destination
+            if path.suffix.lower() in IMAGE_EXTENSIONS:
+                details["artwork_path"] = destination
+        elif "Saving thumbnail to: " in line:
+            thumbnail_path = line.split("Saving thumbnail to: ", 1)[1].strip()
+            details["details"] = thumbnail_path
+            details["artwork_path"] = thumbnail_path
+        elif "thumbnail to \"" in line:
+            match = re.search(r'thumbnail to "([^"]+)"', line)
+            if match:
+                details["details"] = match.group(1).strip()
+                details["artwork_path"] = match.group(1).strip()
         elif "Saving: " in self._format_log_message(line):
             details["details"] = self._format_log_message(line)
         else:
@@ -2093,6 +2112,8 @@ class App:
     def _update_activity_entry(self, entry_id: str | None, **changes):
         if not entry_id:
             return
+        if "artwork_path" in changes and not str(changes.get("artwork_path", "")).strip():
+            changes.pop("artwork_path", None)
         for entry in self.session_activity:
             if entry["id"] == entry_id:
                 entry.update(changes)
@@ -2143,9 +2164,9 @@ class App:
         if not current:
             return
         details = info.get("details", "") or current.get("details", "")
-        artwork_path = current.get("artwork_path", "")
-        if details and Path(details).suffix.lower() in AUDIO_EXTENSIONS:
-            artwork_path = self._find_thumbnail_for_audio(details)
+        artwork_path = info.get("artwork_path", "") or current.get("artwork_path", "")
+        if not artwork_path and details:
+            artwork_path = self._resolve_activity_artwork_path(details)
         self._update_activity_entry(
             self.current_download_activity_id,
             title=info.get("title") or current.get("title", "Preparing download"),
@@ -2440,6 +2461,12 @@ class App:
 
     def _download_worker(self, url: str, import_folder: str, spotify_folder: str):
         try:
+            preview_thumbnail = self._prefetch_activity_thumbnail(url)
+            if preview_thumbnail:
+                self.root.after(0, lambda path=preview_thumbnail: self._update_activity_entry(
+                    self.current_download_activity_id,
+                    artwork_path=path,
+                ))
             files = self._run_download(url, import_folder)
             self.last_downloaded_files = files
             rows = self._build_metadata_rows(files)
@@ -2987,6 +3014,29 @@ class App:
                     return 10**18
             sibling_images.sort(key=image_distance)
             return str(sibling_images[0])
+        return ""
+
+    def _resolve_activity_artwork_path(self, reference_path: Path | str) -> str:
+        if not reference_path:
+            return ""
+        path = Path(reference_path)
+        if path.suffix.lower() in IMAGE_EXTENSIONS and path.exists():
+            return str(path)
+        if path.suffix.lower() in AUDIO_EXTENSIONS:
+            return self._find_thumbnail_for_audio(path)
+        if path.parent.exists():
+            image_suffixes = tuple(IMAGE_EXTENSIONS)
+            exact_prefix = f"{path.stem}."
+            try:
+                sibling_images = [candidate for candidate in path.parent.iterdir() if candidate.is_file() and candidate.suffix.lower() in image_suffixes]
+            except Exception:
+                sibling_images = []
+            for candidate in sibling_images:
+                if candidate.name.startswith(exact_prefix):
+                    return str(candidate)
+            for candidate in sibling_images:
+                if candidate.stem.startswith(path.stem) or path.stem.startswith(candidate.stem):
+                    return str(candidate)
         return ""
 
     def _choose_artwork_file(self) -> str:
@@ -3744,6 +3794,49 @@ class App:
             dest_tags.save(str(target_mp3), v2_version=3)
         except Exception as exc:
             self._log(f"Could not copy cover art to {target_mp3.name}: {exc}")
+
+    def _prefetch_activity_thumbnail(self, url: str) -> str:
+        yt_dlp_path = self._resolve_tool_path("yt-dlp")
+        if not yt_dlp_path:
+            return ""
+
+        preview_dir = Path(tempfile.gettempdir()) / "spotify_local_pipeline_previews"
+        try:
+            preview_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            return ""
+
+        before_files = {str(path.resolve()) for path in preview_dir.glob("*.png") if path.is_file()}
+        output_template = str(preview_dir / "preview_%(id)s.%(ext)s")
+        cmd = [
+            yt_dlp_path,
+            "--skip-download",
+            "--write-thumbnail",
+            "--convert-thumbnails", "png",
+            "--playlist-items", "1",
+            "--output", output_template,
+            url,
+        ]
+        if not self.playlist_var.get():
+            cmd.insert(-1, "--no-playlist")
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+        except Exception:
+            return ""
+        if result.returncode != 0:
+            return ""
+
+        after_files = [path for path in preview_dir.glob("*.png") if path.is_file()]
+        new_files = [path for path in after_files if str(path.resolve()) not in before_files]
+        candidates = new_files or after_files
+        if not candidates:
+            return ""
+        try:
+            candidates.sort(key=lambda path: path.stat().st_mtime_ns, reverse=True)
+        except Exception:
+            candidates.sort(reverse=True)
+        return str(candidates[0])
 
     def _write_manifest(self, rows, spotify_folder: str):
         manifest = Path(spotify_folder) / "spotify_local_manifest.csv"
