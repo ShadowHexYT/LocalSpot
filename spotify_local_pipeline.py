@@ -578,6 +578,8 @@ class App:
         self.last_processed_rows = []
         saved = self._load_settings()
         self.url_var = tk.StringVar()
+        self.manual_title_var = tk.StringVar()
+        self.manual_artist_var = tk.StringVar()
         self.import_folder_var = tk.StringVar(value=saved.get("import_folder", DEFAULT_IMPORT_FOLDER))
         self.spotify_folder_var = tk.StringVar(value=saved.get("spotify_folder", DEFAULT_SPOTIFY_FOLDER))
         self.yt_dlp_path_var = tk.StringVar(value=saved.get("yt_dlp_path", ""))
@@ -734,8 +736,9 @@ class App:
         home_intro.columnconfigure(2, weight=0)
         ttk.Label(home_intro, text="YouTube URL", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10))
         self.url_entry = ttk.Entry(home_intro, textvariable=self.url_var)
-        self.url_entry.grid(row=0, column=1, columnspan=2, sticky="ew")
+        self.url_entry.grid(row=0, column=1, sticky="ew")
         self.url_entry.bind("<Return>", lambda _event: self._start_download())
+        ttk.Button(home_intro, text="Title / Artist", command=self._open_manual_metadata_dialog, style="Secondary.TButton").grid(row=0, column=2, sticky="e", padx=(2, 0))
         status_group = ttk.Frame(home_intro, style="Card.TFrame", padding=10)
         status_group.grid(row=1, column=2, sticky="e", pady=(8, 0))
         ttk.Label(status_group, text="Status", style="Panel.TLabel").pack(side="left")
@@ -744,7 +747,7 @@ class App:
             home_intro,
             text="Paste a video or playlist URL, choose quality and output folders, then monitor every download in the session queue on the right.",
             style="CardSubtle.TLabel",
-            wraplength=900,
+            wraplength=980,
             justify="left",
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(8, 0), padx=(0, 12))
 
@@ -1637,6 +1640,51 @@ class App:
         dialog.wait_window()
         return result["value"]
 
+    def _open_manual_metadata_dialog(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Manual Title and Artist")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.resizable(False, False)
+        colors = self.current_theme_colors or {}
+        dialog.configure(bg=colors.get("bg", "#edf1f5"))
+
+        title_var = tk.StringVar(value=self.manual_title_var.get().strip())
+        artist_var = tk.StringVar(value=self.manual_artist_var.get().strip())
+
+        shell = ttk.Frame(dialog, padding=16, style="Card.TFrame")
+        shell.pack(fill="both", expand=True)
+        shell.columnconfigure(1, weight=1)
+
+        ttk.Label(shell, text="Save a manual title and artist for the next URL you submit.", style="CardSubtle.TLabel", wraplength=360, justify="left").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
+        ttk.Label(shell, text="Title", style="Panel.TLabel").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=(0, 8))
+        ttk.Entry(shell, textvariable=title_var, width=34).grid(row=1, column=1, sticky="ew", pady=(0, 8))
+        ttk.Label(shell, text="Artist", style="Panel.TLabel").grid(row=2, column=0, sticky="w", padx=(0, 10))
+        ttk.Entry(shell, textvariable=artist_var, width=34).grid(row=2, column=1, sticky="ew")
+
+        def save_and_close():
+            self.manual_title_var.set(title_var.get().strip())
+            self.manual_artist_var.set(artist_var.get().strip())
+            dialog.destroy()
+
+        actions = ttk.Frame(shell, style="Toolbar.TFrame")
+        actions.grid(row=3, column=0, columnspan=2, sticky="e", pady=(14, 0))
+        ttk.Button(actions, text="Cancel", command=dialog.destroy, style="Nav.TButton").pack(side="right")
+        ttk.Button(actions, text="Save", command=save_and_close, style="Primary.TButton").pack(side="right", padx=(0, 8))
+
+        dialog.update_idletasks()
+        root_x = self.root.winfo_rootx()
+        root_y = self.root.winfo_rooty()
+        root_w = self.root.winfo_width()
+        root_h = self.root.winfo_height()
+        dialog_w = dialog.winfo_width()
+        dialog_h = dialog.winfo_height()
+        pos_x = root_x + max(0, (root_w - dialog_w) // 2)
+        pos_y = root_y + max(0, (root_h - dialog_h) // 2)
+        dialog.geometry(f"+{pos_x}+{pos_y}")
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        dialog.wait_window()
+
     def _remember_download_url(self, url: str):
         normalized = self._normalize_source_url(url)
         if not normalized:
@@ -2303,11 +2351,13 @@ class App:
             ).grid(row=0, column=1, sticky="e", padx=(10, 0))
         self._sync_queue_canvas()
 
-    def _queue_download(self, url: str, import_folder: str, spotify_folder: str):
+    def _queue_download(self, url: str, import_folder: str, spotify_folder: str, manual_title: str = "", manual_artist: str = ""):
         request = {
             "url": url,
             "import_folder": import_folder,
             "spotify_folder": spotify_folder,
+            "manual_title": manual_title,
+            "manual_artist": manual_artist,
         }
         self.download_queue.append(request)
         self._refresh_queue_view()
@@ -2320,7 +2370,7 @@ class App:
         self._refresh_queue_view()
         self._log(f"Removed queued download: {removed.get('url', '')}")
 
-    def _begin_download_job(self, url: str, import_folder: str, spotify_folder: str):
+    def _begin_download_job(self, url: str, import_folder: str, spotify_folder: str, manual_title: str = "", manual_artist: str = ""):
         self.last_downloaded_files = []
         self.last_metadata_rows = []
         self.last_processed_rows = []
@@ -2329,8 +2379,8 @@ class App:
         self._set_download_progress_percent(0)
         self._log("Starting download pipeline...")
         self.current_download_activity_id = self._add_activity_entry(
-            title="Preparing download",
-            artist="",
+            title=manual_title or "Preparing download",
+            artist=manual_artist,
             status="Starting",
             details=url,
             subtitle="Waiting for source details...",
@@ -2339,7 +2389,7 @@ class App:
             can_delete=False,
         )
         self._set_pipeline_progress("starting", 0)
-        self.worker = threading.Thread(target=self._download_worker, args=(url, import_folder, spotify_folder), daemon=True)
+        self.worker = threading.Thread(target=self._download_worker, args=(url, import_folder, spotify_folder, manual_title, manual_artist), daemon=True)
         self.worker.start()
         self.root.after(500, self._watch_worker)
 
@@ -2397,6 +2447,8 @@ class App:
 
     def _start_download(self):
         url = self.url_var.get().strip()
+        manual_title = self.manual_title_var.get().strip()
+        manual_artist = self.manual_artist_var.get().strip()
         import_folder = self.import_folder_var.get().strip()
         spotify_folder = self.spotify_folder_var.get().strip()
 
@@ -2428,14 +2480,16 @@ class App:
         Path(spotify_folder).mkdir(parents=True, exist_ok=True)
         self._save_settings()
         self.url_var.set("")
+        self.manual_title_var.set("")
+        self.manual_artist_var.set("")
         if hasattr(self, "url_entry") and self.url_entry:
             self.url_entry.focus_set()
 
         if self.worker and self.worker.is_alive():
-            self._queue_download(url, import_folder, spotify_folder)
+            self._queue_download(url, import_folder, spotify_folder, manual_title, manual_artist)
             return
 
-        self._begin_download_job(url, import_folder, spotify_folder)
+        self._begin_download_job(url, import_folder, spotify_folder, manual_title, manual_artist)
 
     def _watch_worker(self):
         if self.worker and self.worker.is_alive():
@@ -2450,6 +2504,8 @@ class App:
                 next_request["url"],
                 next_request["import_folder"],
                 next_request["spotify_folder"],
+                next_request.get("manual_title", ""),
+                next_request.get("manual_artist", ""),
             )
             return
         if self.stop_requested.is_set():
@@ -2459,7 +2515,7 @@ class App:
         else:
             self._set_download_state("idle")
 
-    def _download_worker(self, url: str, import_folder: str, spotify_folder: str):
+    def _download_worker(self, url: str, import_folder: str, spotify_folder: str, manual_title: str = "", manual_artist: str = ""):
         try:
             preview_thumbnail = self._prefetch_activity_thumbnail(url)
             if preview_thumbnail:
@@ -2469,7 +2525,7 @@ class App:
                 ))
             files = self._run_download(url, import_folder)
             self.last_downloaded_files = files
-            rows = self._build_metadata_rows(files)
+            rows = self._build_metadata_rows(files, manual_title=manual_title, manual_artist=manual_artist)
             self.last_metadata_rows = rows
             self.root.after(0, lambda: self._set_pipeline_progress("metadata", 100))
             if self.stop_requested.is_set():
@@ -2644,8 +2700,10 @@ class App:
                 continue
         return sorted(set(fallback_files))
 
-    def _build_metadata_rows(self, files):
+    def _build_metadata_rows(self, files, manual_title: str = "", manual_artist: str = ""):
         rows = []
+        cleaned_manual_title = clean_filename(manual_title, "").strip() if manual_title else ""
+        cleaned_manual_artist = clean_filename(manual_artist, "").strip() if manual_artist else ""
         for path_str in files:
             path = Path(path_str)
             stem = path.stem
@@ -2660,13 +2718,15 @@ class App:
             playlist = parts[-4] if len(parts) >= 4 else "Unknown Playlist"
             artist = parts[-3] if len(parts) >= 3 else "Unknown Artist"
             album = parts[-2] if len(parts) >= 2 else "Singles"
+            resolved_title = cleaned_manual_title or title
+            resolved_artist = cleaned_manual_artist or artist
 
             rows.append(
                 {
                     "source_path": str(path),
                     "filename": path.name,
-                    "title": title,
-                    "artist": artist,
+                    "title": resolved_title,
+                    "artist": resolved_artist,
                     "album": album,
                     "track": track,
                     "playlist": playlist,
