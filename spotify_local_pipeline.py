@@ -755,9 +755,8 @@ class App:
         self.download_button.pack(side="left")
         self.stop_button = ttk.Button(action_row, text="Force Stop", command=self._stop_download, state="disabled", style="Danger.TButton")
         self.stop_button.pack(side="left", padx=(8, 0))
-        self.download_progress = ttk.Progressbar(action_row, mode="determinate", maximum=100, variable=self.download_progress_value, length=180, style="Accent.Horizontal.TProgressbar")
-        self.download_progress.pack(side="left", padx=(12, 0))
-        ttk.Label(action_row, textvariable=self.download_state_var, style="Chip.TLabel").pack(side="left", padx=(12, 0))
+        ttk.Label(action_row, text="Status", style="Panel.TLabel").pack(side="left", padx=(12, 6))
+        ttk.Label(action_row, textvariable=self.download_state_var, style="Chip.TLabel").pack(side="left")
 
         ttk.Frame(control_stack, style="Divider.TFrame", height=2).grid(row=1, column=0, sticky="ew", pady=(8, 8))
 
