@@ -744,6 +744,7 @@ class App:
         control_stack = ttk.Frame(home, style="DividerHost.TFrame")
         control_stack.grid(row=1, column=0, sticky="nsew", padx=(0, 12))
         control_stack.columnconfigure(0, weight=1)
+        control_stack.rowconfigure(4, weight=1)
 
         actions = ttk.LabelFrame(control_stack, text="Download Controls", padding=14)
         actions.grid(row=0, column=0, sticky="ew")
@@ -783,12 +784,15 @@ class App:
 
         ttk.Frame(control_stack, style="Divider.TFrame", height=2).grid(row=3, column=0, sticky="ew", pady=(8, 8))
 
-        quick_options = ttk.LabelFrame(control_stack, text="Quick Options", padding=14)
-        quick_options.grid(row=4, column=0, sticky="ew", pady=(0, 0))
-        ttk.Checkbutton(quick_options, text="Allow playlists", variable=self.playlist_var, style="Panel.TCheckbutton").grid(row=0, column=0, sticky="w")
-        ttk.Checkbutton(quick_options, text="Review metadata before import", variable=self.review_before_import_var, style="Panel.TCheckbutton").grid(row=1, column=0, sticky="w", pady=(6, 0))
-        ttk.Checkbutton(quick_options, text="Copy to Spotify-ready folder", variable=self.copy_to_spotify_folder_var, style="Panel.TCheckbutton").grid(row=2, column=0, sticky="w", pady=(6, 0))
-        ttk.Checkbutton(quick_options, text="Embed MP3 tags and artwork", variable=self.write_tags_var, style="Panel.TCheckbutton").grid(row=3, column=0, sticky="w", pady=(6, 0))
+        log_frame = ttk.LabelFrame(control_stack, text="Active Log", padding=10)
+        log_frame.grid(row=4, column=0, sticky="nsew", pady=(0, 0))
+        log_frame.columnconfigure(0, weight=1)
+        log_frame.rowconfigure(0, weight=1)
+        self.log_text = tk.Text(log_frame, wrap="word", height=14)
+        self.log_text.grid(row=0, column=0, sticky="nsew")
+        log_scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
+        log_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.log_text.configure(yscrollcommand=log_scrollbar.set, state="disabled")
 
         right_stack = ttk.Frame(home, style="DividerHost.TFrame")
         right_stack.grid(row=1, column=1, sticky="nsew")
@@ -990,18 +994,6 @@ class App:
                 padx=(0, 8) if column < 2 else 0,
                 pady=(0, 8) if row == 0 else 0,
             )
-        ttk.Frame(self.settings_content, style="Divider.TFrame", height=2).grid(row=7, column=0, sticky="ew", pady=(8, 8))
-
-        log_frame = ttk.LabelFrame(self.settings_content, text="Background Log", padding=10)
-        log_frame.grid(row=8, column=0, sticky="nsew")
-        log_frame.columnconfigure(0, weight=1)
-        log_frame.rowconfigure(0, weight=1)
-        self.settings_content.rowconfigure(8, weight=1)
-        self.log_text = tk.Text(log_frame, wrap="word", height=16)
-        self.log_text.grid(row=0, column=0, sticky="nsew")
-        log_scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
-        log_scrollbar.grid(row=0, column=1, sticky="ns")
-        self.log_text.configure(yscrollcommand=log_scrollbar.set, state="disabled")
         self._refresh_queue_view()
         self._apply_theme(self.theme_mode_var.get())
         self._set_download_state("idle")
