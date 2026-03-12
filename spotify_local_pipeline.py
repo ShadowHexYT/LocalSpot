@@ -731,7 +731,8 @@ class App:
         home_intro.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
         home_intro.columnconfigure(1, weight=1)
         ttk.Label(home_intro, text="YouTube URL", style="Panel.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 10))
-        ttk.Entry(home_intro, textvariable=self.url_var).grid(row=0, column=1, sticky="ew")
+        self.url_entry = ttk.Entry(home_intro, textvariable=self.url_var)
+        self.url_entry.grid(row=0, column=1, sticky="ew")
         ttk.Label(
             home_intro,
             text="Paste a video or playlist URL, choose quality and output folders, then monitor every download in the session queue on the right.",
@@ -2414,6 +2415,9 @@ class App:
         Path(import_folder).mkdir(parents=True, exist_ok=True)
         Path(spotify_folder).mkdir(parents=True, exist_ok=True)
         self._save_settings()
+        self.url_var.set("")
+        if hasattr(self, "url_entry") and self.url_entry:
+            self.url_entry.focus_set()
 
         if self.worker and self.worker.is_alive():
             self._queue_download(url, import_folder, spotify_folder)
