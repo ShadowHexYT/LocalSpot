@@ -1370,9 +1370,24 @@ class App:
         ttk.Button(actions, text="Apply Selected Changes", command=self._apply_metadata_form, style="Secondary.TButton").pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Save Metadata", command=self._save_metadata_from_workspace, style="Primary.TButton").pack(side="right")
 
-        inspector = ttk.LabelFrame(self.metadata_panel, text="Selected Track", padding=12)
-        inspector.grid(row=1, column=1, sticky="nsew", padx=(12, 0))
+        inspector_shell = ttk.LabelFrame(self.metadata_panel, text="Selected Track", padding=0)
+        inspector_shell.grid(row=1, column=1, sticky="nsew", padx=(12, 0))
+        inspector_shell.columnconfigure(0, weight=1)
+        inspector_shell.rowconfigure(0, weight=1)
+        self.metadata_inspector_canvas = tk.Canvas(inspector_shell, highlightthickness=0, borderwidth=0)
+        metadata_scrollbar = ttk.Scrollbar(inspector_shell, orient="vertical", command=self.metadata_inspector_canvas.yview)
+        self.metadata_inspector_canvas.configure(yscrollcommand=metadata_scrollbar.set)
+        self.metadata_inspector_canvas.grid(row=0, column=0, sticky="nsew")
+        metadata_scrollbar.grid(row=0, column=1, sticky="ns")
+        inspector = ttk.Frame(self.metadata_inspector_canvas, padding=12, style="Card.TFrame")
         inspector.columnconfigure(0, weight=1)
+        self.metadata_inspector_window = self.metadata_inspector_canvas.create_window((0, 0), window=inspector, anchor="nw")
+        inspector.bind("<Configure>", self._sync_metadata_inspector_canvas)
+        self.metadata_inspector_canvas.bind("<Configure>", self._resize_metadata_inspector_canvas)
+        for widget in (inspector_shell, self.metadata_inspector_canvas, inspector):
+            widget.bind("<Enter>", self._bind_metadata_inspector_mousewheel, add="+")
+            widget.bind("<Leave>", self._unbind_metadata_inspector_mousewheel, add="+")
+
         self.metadata_thumbnail_frame = tk.Frame(inspector, width=220, height=220, relief="solid", bd=1)
         self.metadata_thumbnail_frame.grid(row=0, column=0, sticky="n", pady=(0, 12))
         self.metadata_thumbnail_frame.grid_propagate(False)
@@ -1430,9 +1445,24 @@ class App:
         ttk.Button(actions, text="Delete Selected", command=self._delete_selected_from_workspace, style="Danger.TButton").pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Open Folder of Selection", command=self._open_selected_file_folder, style="Secondary.TButton").pack(side="left", padx=(8, 0))
 
-        inspector = ttk.LabelFrame(self.files_panel, text="Selected File Metadata", padding=12)
-        inspector.grid(row=1, column=1, sticky="nsew", padx=(12, 0))
+        inspector_shell = ttk.LabelFrame(self.files_panel, text="Selected File Metadata", padding=0)
+        inspector_shell.grid(row=1, column=1, sticky="nsew", padx=(12, 0))
+        inspector_shell.columnconfigure(0, weight=1)
+        inspector_shell.rowconfigure(0, weight=1)
+        self.files_inspector_canvas = tk.Canvas(inspector_shell, highlightthickness=0, borderwidth=0)
+        files_scrollbar = ttk.Scrollbar(inspector_shell, orient="vertical", command=self.files_inspector_canvas.yview)
+        self.files_inspector_canvas.configure(yscrollcommand=files_scrollbar.set)
+        self.files_inspector_canvas.grid(row=0, column=0, sticky="nsew")
+        files_scrollbar.grid(row=0, column=1, sticky="ns")
+        inspector = ttk.Frame(self.files_inspector_canvas, padding=12, style="Card.TFrame")
         inspector.columnconfigure(0, weight=1)
+        self.files_inspector_window = self.files_inspector_canvas.create_window((0, 0), window=inspector, anchor="nw")
+        inspector.bind("<Configure>", self._sync_files_inspector_canvas)
+        self.files_inspector_canvas.bind("<Configure>", self._resize_files_inspector_canvas)
+        for widget in (inspector_shell, self.files_inspector_canvas, inspector):
+            widget.bind("<Enter>", self._bind_files_inspector_mousewheel, add="+")
+            widget.bind("<Leave>", self._unbind_files_inspector_mousewheel, add="+")
+
         self.file_thumbnail_frame = tk.Frame(inspector, width=220, height=220, relief="solid", bd=1)
         self.file_thumbnail_frame.grid(row=0, column=0, sticky="n", pady=(0, 12))
         self.file_thumbnail_frame.grid_propagate(False)
@@ -2076,6 +2106,70 @@ class App:
     def _resize_settings_canvas(self, event):
         if hasattr(self, "settings_canvas_window"):
             self.settings_canvas.itemconfigure(self.settings_canvas_window, width=event.width)
+
+    def _sync_metadata_inspector_canvas(self, _event=None):
+        if hasattr(self, "metadata_inspector_canvas") and hasattr(self, "metadata_inspector_window"):
+            self.metadata_inspector_canvas.configure(scrollregion=self.metadata_inspector_canvas.bbox("all"))
+
+    def _resize_metadata_inspector_canvas(self, event):
+        if hasattr(self, "metadata_inspector_window"):
+            self.metadata_inspector_canvas.itemconfigure(self.metadata_inspector_window, width=event.width)
+
+    def _bind_metadata_inspector_mousewheel(self, _event=None):
+        if hasattr(self, "metadata_inspector_canvas"):
+            self.metadata_inspector_canvas.bind_all("<MouseWheel>", self._on_metadata_inspector_mousewheel, add="+")
+            self.metadata_inspector_canvas.bind_all("<Button-4>", self._on_metadata_inspector_mousewheel, add="+")
+            self.metadata_inspector_canvas.bind_all("<Button-5>", self._on_metadata_inspector_mousewheel, add="+")
+
+    def _unbind_metadata_inspector_mousewheel(self, _event=None):
+        if hasattr(self, "metadata_inspector_canvas"):
+            self.metadata_inspector_canvas.unbind_all("<MouseWheel>")
+            self.metadata_inspector_canvas.unbind_all("<Button-4>")
+            self.metadata_inspector_canvas.unbind_all("<Button-5>")
+
+    def _on_metadata_inspector_mousewheel(self, event):
+        if not hasattr(self, "metadata_inspector_canvas"):
+            return
+        if getattr(event, "num", None) == 4:
+            delta = -1
+        elif getattr(event, "num", None) == 5:
+            delta = 1
+        else:
+            delta = -1 * int(event.delta / 120) if getattr(event, "delta", 0) else 0
+        if delta:
+            self.metadata_inspector_canvas.yview_scroll(delta, "units")
+
+    def _sync_files_inspector_canvas(self, _event=None):
+        if hasattr(self, "files_inspector_canvas") and hasattr(self, "files_inspector_window"):
+            self.files_inspector_canvas.configure(scrollregion=self.files_inspector_canvas.bbox("all"))
+
+    def _resize_files_inspector_canvas(self, event):
+        if hasattr(self, "files_inspector_window"):
+            self.files_inspector_canvas.itemconfigure(self.files_inspector_window, width=event.width)
+
+    def _bind_files_inspector_mousewheel(self, _event=None):
+        if hasattr(self, "files_inspector_canvas"):
+            self.files_inspector_canvas.bind_all("<MouseWheel>", self._on_files_inspector_mousewheel, add="+")
+            self.files_inspector_canvas.bind_all("<Button-4>", self._on_files_inspector_mousewheel, add="+")
+            self.files_inspector_canvas.bind_all("<Button-5>", self._on_files_inspector_mousewheel, add="+")
+
+    def _unbind_files_inspector_mousewheel(self, _event=None):
+        if hasattr(self, "files_inspector_canvas"):
+            self.files_inspector_canvas.unbind_all("<MouseWheel>")
+            self.files_inspector_canvas.unbind_all("<Button-4>")
+            self.files_inspector_canvas.unbind_all("<Button-5>")
+
+    def _on_files_inspector_mousewheel(self, event):
+        if not hasattr(self, "files_inspector_canvas"):
+            return
+        if getattr(event, "num", None) == 4:
+            delta = -1
+        elif getattr(event, "num", None) == 5:
+            delta = 1
+        else:
+            delta = -1 * int(event.delta / 120) if getattr(event, "delta", 0) else 0
+        if delta:
+            self.files_inspector_canvas.yview_scroll(delta, "units")
 
     def _sync_queue_canvas(self, _event=None):
         if hasattr(self, "queue_canvas") and hasattr(self, "queue_canvas_window"):
